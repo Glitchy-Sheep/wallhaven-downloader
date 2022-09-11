@@ -5,7 +5,7 @@ import logging, sys                     # logger for checking failed tests
 from datetime import datetime as dt     # for "sorting" test
 
 from wallhaven_api import WallHavenAPI
-from wallhaven_api import SORTING
+from wallhaven_api import SORTING, TOPRANGE
 
 
 API_KEY = os.getenv("WALLHAVEN_API_KEY")
@@ -18,7 +18,7 @@ def get_wallpaper_datetime(date: str):
     return dt.strptime(date, "%Y-%m-%d %H:%M:%S")
 
 
-class API_Test_Search(unittest.IsolatedAsyncioTestCase):
+class ApiTestSearch(unittest.IsolatedAsyncioTestCase):
     # Sometimes tests cause unclosed socket warnings
     # I couldn't beat this yet, maybe something happens in _get_method of the API
     # if you know the issue, please open pull request with possible decision
@@ -28,7 +28,6 @@ class API_Test_Search(unittest.IsolatedAsyncioTestCase):
             message="unclosed",
             category=ResourceWarning)
         return super().setUp()
-
 
     async def test_query(self):
         target_query = "pool"
@@ -71,8 +70,8 @@ class API_Test_Search(unittest.IsolatedAsyncioTestCase):
     async def test_sorting_views(self):
         target_sorting = "views"
         self.assertIn(target_sorting, SORTING)
-        request = await api.search(sorting=target_sorting, order="desc")
-        wallpapers = request["data"]
+        response = await api.search(sorting=target_sorting, order="desc")
+        wallpapers = response["data"]
 
         previous_views = int(wallpapers[0]["views"])
         for wallpaper in wallpapers:
@@ -81,13 +80,20 @@ class API_Test_Search(unittest.IsolatedAsyncioTestCase):
             previous_views = current_views
 
 
+    async def test_sorting_random(self):
+        target_sorting = "random"
+        self.assertIn(target_sorting, SORTING)
+        result = await api.search(sorting=target_sorting)
+        self.assertIsNotNone(result["meta"]["seed"]) # random set seed
+
+
     async def test_sorting_favorites(self):
         target_sorting = "favorites"
         self.assertIn(target_sorting, SORTING)
 
-        request = await api.search(sorting=target_sorting, order="desc")
+        response = await api.search(sorting=target_sorting, order="desc")
 
-        wallpapers = request["data"]
+        wallpapers = response["data"]
         previous_views = int(wallpapers[0][target_sorting])
         for wallpaper in wallpapers:
             current_views = int(wallpaper[target_sorting])
@@ -97,19 +103,52 @@ class API_Test_Search(unittest.IsolatedAsyncioTestCase):
 
     async def test_at_least(self):
         target_at_least = "3000x3000"
-        request = await api.search(atleast=target_at_least)
+        response = await api.search(atleast=target_at_least)
 
         at_least_resolution = target_at_least.split("x")
         at_least_x = at_least_resolution[0]
         at_least_y = at_least_resolution[1]
 
-        wallpapers = request["data"]
+        wallpapers = response["data"]
         for wallpaper in wallpapers:
             current_resolution = wallpaper["resolution"].split("x")
             current_x = current_resolution[0]
             current_y = current_resolution[1]
             self.assertGreaterEqual(current_x, at_least_x)
             self.assertGreaterEqual(current_y, at_least_y)
+
+
+    async def test_resolution(self):
+        target_resolution = ["1920x1080"]
+        response = await api.search(resolutions=target_resolution)
+
+        wallpapers = response["data"]
+        for wallpaper in wallpapers:
+            self.assertEqual(wallpaper["resolution"], target_resolution[0])
+
+
+    async def test_ratios(self):
+        target_ratio = "1x1"
+        response = await api.search(ratios=target_ratio)
+
+        wallpapers = response["data"]
+        for wallpaper in wallpapers:
+            self.assertEqual(1.0, float(wallpaper["ratio"]))
+
+
+    async def test_color(self):
+        target_color = "000000"
+        response = await api.search(colors=target_color)
+        wallpapers = response["data"]
+
+        for wallpaper in wallpapers:
+            self.assertIn("#" + target_color, wallpaper["colors"])
+
+
+    async def test_page(self):
+        target_page = "2"
+        response = await api.search(q="anime", page=target_page)
+        self.assertEqual(int(target_page), int(response["meta"]["current_page"]))
 
 
 
@@ -124,27 +163,36 @@ class API_Test_Search(unittest.IsolatedAsyncioTestCase):
     async def test_sorting_toplist(self):
         target_sorting = "toplist"
         self.assertIn(target_sorting, SORTING)
-        result = await api.search(sorting=target_sorting)
-        self.assertTrue(result)
-
-
-    async def test_sorting_random(self):
-        target_sorting = "random"
-        self.assertIn(target_sorting, SORTING)
-        result = await api.search(sorting=target_sorting)
-        self.assertTrue(result)
+        response = await api.search(sorting=target_sorting)
+        self.assertIsNotNone(response["data"])
 
 
     async def test_sorting_relevance(self):
         target_sorting = "relevance"
         self.assertIn(target_sorting, SORTING)
-        result = await api.search(sorting=target_sorting)
-        self.assertTrue(result)
+        response = await api.search(sorting=target_sorting)
+        self.assertIsNotNone(response["data"])
+
+
+    async def test_toprange(self):
+        target_toprange = "1d"
+        self.assertIn(target_toprange, TOPRANGE)
+        response = await api.search("anime")
+        self.assertIsNotNone(response["data"])
+
+
+    # Something is completely wrong with seed values
+    # it seems that API just ignores it, because different seeds
+    # give same page of wallpapers (even with sorting=random)
+    async def test_seed(self):
+        target_seed = "abc123"
+        response = await api.search(seed=target_seed)
+        self.assertIsNotNone(response["data"])
 
 
 # TODO:
 # 1. add a logging system to check specific tests if the are fail
-# logging.getLogger("CLASS_NAME.test_method_name").setLevel(logging.INFO)
+# logging.getLogger("ClassName.test_method_name").setLevel(logging.INFO)
 # 2. finish remaining tests
 
 
