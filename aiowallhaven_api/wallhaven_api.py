@@ -198,7 +198,7 @@ class WallHavenAPI(object):
                     query_params["ratios"] = ratios
                 else:
                     raise ValueError("The provided ratio is incorrect. Example of a valid format: '16x9'")
-            if isinstance(ratios, list):
+            elif isinstance(ratios, list):
                 for x in ratios:
                     if re.search("^[0-9]{0,2}x[0-9]{0,2}$", x):
                         query_params["ratios"] = "%2C".join(ratios)
