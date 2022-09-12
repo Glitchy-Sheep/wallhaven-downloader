@@ -63,6 +63,8 @@ class WallHavenAPI(object):
                         return await session.json()
                     elif session.status == 401:
                         raise aiohttp.web.HTTPUnauthorized(f"Invalid API key. Please provide a valid API key. You can regenerate your API key at https://wallhaven.cc/settings/account")
+                    elif session.status == 429:
+                        raise aiohttp.web.HTTPTooManyRequests(f"Too many requests to the server, please try again later")
                     else:
                         raise aiohttp.web.HTTPException(f"The request to open {session} failed with the following HTTP code: {session.status}")
 
