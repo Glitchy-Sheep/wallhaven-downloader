@@ -222,7 +222,7 @@ class WallHavenAPI(object):
 
 
 
-    async def get_tag(self, tag: str):
+    async def get_tag(self, tag: int):
         """Return the information about a tag.
         Args:
             tag - a tag to look for
@@ -242,7 +242,9 @@ class WallHavenAPI(object):
 
 
 
-    async def get_collections(self, username: str = None, collection_id: int = None, purity: list = None):
+    async def get_collections(self, username: str = None,
+                                    collection_id: int = None,
+                                    purity: list = None):
         """Allows the user to see their own or public collection.
         Args:
             username - an optional argument allowing the user to check other users' public collections.
@@ -251,15 +253,22 @@ class WallHavenAPI(object):
         Returns:
             JSON"""
 
-        query_params: dict = {}
+        query_url = "collections"
 
         if (username):
-            query_params["username"] = username
+            query_url += '/' + username
 
         if (collection_id):
-            query_params["collection_id"] = collection_id
+            query_url += '/' + str(collection_id)
 
         if (purity):
-            query_params["purity"] = self._translate_purity_to_value(purity)
+            query_url += '?purity=' + await self._translate_purity_to_value(purity)
 
-        return await self._get_method(f"collections" if query_params is None else f"collections?{'&'.join('{}={}'.format(*i) for i in query_params.items())}")
+        return await self._get_method(query_url)
+
+
+    async def get_user_uploads(self, username,
+                                        purity=["sfw", "sketchy", "nsfw"],
+                                        page=1):
+        res = await self.search(q = f"@{username}", page=page, purity=purity)
+        return res
