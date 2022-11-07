@@ -9,7 +9,7 @@ import aiohttp
 import aiohttp.web
 from aiolimiter import AsyncLimiter
 
-import api_exception_reasons as exception_reasons
+import modules.aiowallhaven_api.api_exception_reasons as exception_reasons
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 
@@ -43,7 +43,7 @@ class WallHavenAPI(object):
     def __init__(self, api_key):
         self.api_key: str = api_key
 
-    async def _get_method(self, url) -> Dict:
+    async def _get_method(self, url, params=None) -> Dict:
         """Make an async GET request to https://wallhaven.cc
 
         Args:
@@ -55,6 +55,9 @@ class WallHavenAPI(object):
         Returns:
             JSON"""
 
+        if params is None:
+            params = {}
+
         headers = {
             "X-API-key": f"{self.api_key}",
         }
@@ -62,7 +65,7 @@ class WallHavenAPI(object):
         async with RATE_LIMIT:
             async with aiohttp.ClientSession() as session:
                 req_url = f"{BASE_API_URL}/{VERSION}/{url}"
-                async with session.get(req_url, headers=headers) as response:
+                async with session.get(req_url, headers=headers, params=params) as response:
                     status_code = response.status
                     match status_code:
                         case HTTPStatus.OK:
@@ -80,7 +83,8 @@ class WallHavenAPI(object):
 
                         case _:  # general error
                             raise aiohttp.web.HTTPException(
-                                reason=exception_reasons.GeneralError
+                                reason=exception_reasons.GeneralError.format(
+                                    session=session, status_code=status_code)
                             )
 
     @staticmethod
@@ -250,7 +254,8 @@ class WallHavenAPI(object):
 
     async def get_collections(self, username: str = None,
                               collection_id: int = None,
-                              purity: list = None):
+                              purity: list = None,
+                              page: int = 1):
         """Allows the user to see their own or public collection.
         Args:
             username - an optional argument allowing the user to check other users' public collections.
@@ -270,12 +275,19 @@ class WallHavenAPI(object):
         if purity:
             query_url += '?purity=' + await self._translate_purity_to_value(purity)
 
-        return await self._get_method(query_url)
+        return await self._get_method(query_url, params={"page": page})
 
-    async def get_user_uploads(self, username,
-                               purity=None,
-                               page=1):
+    async def get_user_uploads(self, username, purity=None, page=1):
         if not purity:
             purity = ['sfw', "sketchy", "nsfw"]
         res = await self.search(q=f"@{username}", page=str(page), purity=purity)
         return res
+
+    async def get_user_collection(self, username, collection_name, page=1):
+        res = await self.get_collections(username, page=page)
+
+        for collection in res["data"]:
+            if collection['label'] == collection_name:
+                return await self.get_collections(username, collection['id'], page=page)
+
+        return []  # there is no collection with such name
