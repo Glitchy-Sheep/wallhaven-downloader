@@ -3,8 +3,8 @@ import unittest
 import warnings  # disable some socket warnings
 from datetime import datetime as dt  # for "sorting" test
 
-from wallhaven_api import SORTING, TOPRANGE
-from wallhaven_api import WallHavenAPI
+from api import SORTING, TOPRANGE
+from api import WallHavenAPI
 
 API_KEY = os.getenv("WALLHAVEN_API_KEY")
 if not API_KEY:
