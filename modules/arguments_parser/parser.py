@@ -38,5 +38,11 @@ parser.add_argument('-s', '--sync',
                     help=HELP_MSG_SYNC
                     )
 
+parser.add_argument('-v', '--verbose',
+                    required=False,
+                    action="store_true",
+                    help=HELP_MSG_VERBOSE
+                    )
+
 
 args = vars(parser.parse_args())
