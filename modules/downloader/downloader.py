@@ -198,6 +198,11 @@ class WallhavenDownloader:
         for collection in (collections if collections else []):
             username = collection[0]
             user_collections = collection[1:]
+            if not user_collections:
+                all_collections = await self._api.get_collections(username)
+                for user_col in all_collections["data"]:
+                    user_collections.append(user_col["label"])
+
             for user_collection in user_collections:
                 self._logger.warning(f"adding collection task: '{user_collection}'")
                 await self._append_collection_task(username, user_collection)
