@@ -44,5 +44,12 @@ parser.add_argument('-v', '--verbose',
                     help=HELP_MSG_VERBOSE
                     )
 
+parser.add_argument('-p', '--parallel',
+                    required=False,
+                    type=int,
+                    metavar='',
+                    help=HELP_MSG_PARALLEL
+                    )
+
 
 args = vars(parser.parse_args())

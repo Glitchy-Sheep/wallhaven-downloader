@@ -15,7 +15,12 @@ if not WALLHAVEN_API_KEY:
 
 async def amain(event_loop):
     log_level = "INFO" if args['verbose'] else "WARNING"
-    d = WallhavenDownloader(WALLHAVEN_API_KEY, log_level=log_level)
+    parallel_n = args['parallel'] if args['parallel'] else 1
+    if parallel_n < 1:
+        parallel_n = 1
+
+    d = WallhavenDownloader(
+        WALLHAVEN_API_KEY, async_downloads=parallel_n, log_level=log_level)
     await d.add_tasks(
         args["collections"],
         args["uploads"]

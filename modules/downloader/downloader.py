@@ -80,6 +80,8 @@ class WallhavenDownloader:
         if not api_key:
             self._logger.warning("API key is not set")
 
+        self._logger.info("Parallel downloads set to: " + str(async_downloads))
+
         if not os.path.exists(self._download_directory):
             os.mkdir(self._download_directory)
             return

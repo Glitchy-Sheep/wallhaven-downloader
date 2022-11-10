@@ -31,3 +31,7 @@ HELP_MSG_SYNC = '''[IN DEVELOPING]\n '''
 
 HELP_MSG_VERBOSE = '''Show extra info about downloading progress
 without this option you will only see which task is running now\n '''
+
+HELP_MSG_PARALLEL = '''Count of simultaneous downloads (default = 1)
+Beware too many downloads at a time, it could be less stable. (1-6 recommended)
+'''
