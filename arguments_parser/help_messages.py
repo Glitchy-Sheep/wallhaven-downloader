@@ -38,3 +38,6 @@ default: (sfw, sketchy, nsfw)\n\n'''
 
 HELP_MSG_CATEGORY = '''Filter for category, only specified category will be downloaded
 default: (general, people, anime)\n\n'''
+
+HELP_MSG_DOWNLOADS_PATH = '''Path where all downloads will be located
+default: ./downloads\n\n'''

@@ -1,7 +1,10 @@
+import os
 import argparse
 
 from arguments_parser.help_messages import *
 from aiowallhaven.wallhaven_types import Purity, Category
+
+DEFAULT_DOWNLOADS_PATH = os.curdir + os.sep + "downloads"
 
 
 parser = argparse.ArgumentParser(
@@ -50,6 +53,13 @@ parser.add_argument('--sync', '-s',
                     action="store_true",
                     help=HELP_MSG_SYNC)
 
+parser.add_argument('--downloads-path', '-d',
+                    required=False,
+                    type=str,
+                    metavar='',
+                    default=DEFAULT_DOWNLOADS_PATH,
+                    help=HELP_MSG_DOWNLOADS_PATH)
+
 parser.add_argument('--verbose', '-v',
                     required=False,
                     action="store_true",
@@ -93,3 +103,7 @@ def get_category_filter():
     if "people" in args['category']:
         category_filter.people = True
     return category_filter
+
+
+def get_downloads_path():
+    return args['downloads_path']
