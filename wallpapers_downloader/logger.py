@@ -1,8 +1,8 @@
 import logging
-from arguments_parser.parser import args
+import arguments_parser.parser as arg_parser
 
 
 # for future use
 def get_downloader_logger():
     logger = logging.getLogger(__name__)
-    log_level = "INFO" if args['verbose'] else "WARNING"
+    log_level = arg_parser.get_logger_level()

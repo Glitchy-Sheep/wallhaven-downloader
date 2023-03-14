@@ -9,6 +9,8 @@ DEFAULT_DOWNLOADS_PATH = os.curdir + os.sep + "downloads"
 COLLECTIONS_PATH = DEFAULT_DOWNLOADS_PATH + os.sep + 'collections'
 UPLOADS_PATH = DEFAULT_DOWNLOADS_PATH + os.sep + 'uploads'
 
+DEFAULT_VERBOSE = False
+
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawTextHelpFormatter,
     description=help_messages.PROGRAM_DESCRIPTION)
@@ -65,6 +67,7 @@ parser.add_argument('--downloads-path', '-d',
 parser.add_argument('--verbose', '-v',
                     required=False,
                     action="store_true",
+                    default=DEFAULT_VERBOSE,
                     help=help_messages.HELP_MSG_VERBOSE)
 
 parser.add_argument('--threads', '-t',
@@ -131,3 +134,11 @@ def get_all_tasks() -> list[CollectionTask | UploadTask]:
                 save_directory=UPLOADS_PATH + os.sep + upload[0]))
 
     return tasks
+
+
+def get_logger_level():
+    verbose = args['verbose']
+    if verbose:
+        return "INFO"
+    else:
+        return "WARNING"
