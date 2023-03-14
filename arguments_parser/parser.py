@@ -9,6 +9,7 @@ DEFAULT_DOWNLOADS_PATH = os.curdir + os.sep + "downloads"
 COLLECTIONS_PATH = DEFAULT_DOWNLOADS_PATH + os.sep + 'collections'
 UPLOADS_PATH = DEFAULT_DOWNLOADS_PATH + os.sep + 'uploads'
 
+DEFAULT_THREADS_COUNT = 1
 DEFAULT_VERBOSE = False
 
 parser = argparse.ArgumentParser(
@@ -74,10 +75,41 @@ parser.add_argument('--threads', '-t',
                     required=False,
                     type=int,
                     metavar='count',
+                    default=DEFAULT_THREADS_COUNT,
                     help=help_messages.HELP_MSG_THREADS)
 
 
 args = vars(parser.parse_args())
+
+
+def get_info_usernames():
+    usernames = args['info']
+    if usernames is None:
+        return []
+    else:
+        return usernames
+
+
+def get_all_tasks() -> list[CollectionTask | UploadTask]:
+    tasks = []
+
+    # each collection is a list with first element as a username
+    # and all others as its collections
+    if args['collections']:
+        for collection in args['collections']:
+            tasks.append(CollectionTask(
+                username=collection[0],
+                collections=collection[1:],
+                save_directory=COLLECTIONS_PATH + os.sep + collection[0]))
+
+    # uploads arg is more simple - it's just a list o usernames
+    if args['uploads']:
+        for upload in args['uploads']:
+            tasks.append(UploadTask(
+                username=upload[0],
+                save_directory=UPLOADS_PATH + os.sep + upload[0]))
+
+    return tasks
 
 
 def get_purity_filter():
@@ -114,31 +146,16 @@ def get_downloads_path():
     return args['downloads_path']
 
 
-def get_all_tasks() -> list[CollectionTask | UploadTask]:
-    tasks = []
-
-    # each collection is a list with first element as a username
-    # and all others as its collections
-    if args['collections']:
-        for collection in args['collections']:
-            tasks.append(CollectionTask(
-                username=collection[0],
-                collections=collection[1:],
-                save_directory=COLLECTIONS_PATH + os.sep + collection[0]))
-
-    # uploads arg is more simple - it's just a list o usernames
-    if args['uploads']:
-        for upload in args['uploads']:
-            tasks.append(UploadTask(
-                username=upload[0],
-                save_directory=UPLOADS_PATH + os.sep + upload[0]))
-
-    return tasks
-
-
 def get_logger_level():
     verbose = args['verbose']
     if verbose:
         return "INFO"
     else:
         return "WARNING"
+
+
+def get_threads_count():
+    threads = args['threads']
+    if threads <= 0:
+        threads = DEFAULT_THREADS_COUNT
+    return threads
