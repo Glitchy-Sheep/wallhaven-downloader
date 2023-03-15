@@ -106,8 +106,8 @@ def get_all_tasks() -> list[CollectionTask | UploadTask]:
     if args['uploads']:
         for upload in args['uploads']:
             tasks.append(UploadTask(
-                username=upload[0],
-                save_directory=UPLOADS_PATH + os.sep + upload[0]))
+                username=upload,
+                save_directory=UPLOADS_PATH + os.sep + upload))
 
     return tasks
 
