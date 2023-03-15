@@ -208,7 +208,7 @@ class WallHavenAPI(object):
             query_params["seed"] = seed
 
         return await self._get_method(
-            f"search" if not query_params else
+            "search" if not query_params else
             f"search?{'&'.join('{}={}'.format(*i) for i in query_params.items())}")
 
     async def get_tag(self, tag: int):    
@@ -227,7 +227,7 @@ class WallHavenAPI(object):
 
             :return: :class: `JSON` object
         """
-        return await self._get_method(f"settings")
+        return await self._get_method("settings")
 
     async def get_collections(self, username: str = None,
                               collection_id: int = None,

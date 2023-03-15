@@ -9,9 +9,10 @@ from aiowallhaven.wallhaven_types import (
 
 API_KEY = os.getenv("WALLHAVEN_API_KEY")
 if not API_KEY:
-    raise Exception("The wallhaven API key is required for this test.")
+    raise PermissionError("The wallhaven API key is required for this test.")
 
 api = WallHavenAPI(API_KEY)
+
 
 def get_wallpaper_datetime(date: str):
     return dt.strptime(date, "%Y-%m-%d %H:%M:%S")
@@ -162,7 +163,7 @@ class ApiTestSearch(unittest.IsolatedAsyncioTestCase):
 
     async def test_toprange(self):
         target_toprange = TopRange.one_day
-        response = await api.search("anime")
+        response = await api.search("anime", toprange=target_toprange)
         self.assertIsNotNone(response["data"])
 
     # Something is completely wrong with seed values
