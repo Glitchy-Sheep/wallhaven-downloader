@@ -288,3 +288,19 @@ class WallHavenAPI(object):
             purity = Purity(sfw=True, sketchy=True, nsfw=False)
         res = await self.search(q=f"@{username}", page=page, purity=purity)
         return res
+
+    async def get_user_collection(self,
+                                  username: str,
+                                  collection_name: str,
+                                  purity: Purity = None,
+                                  page: int = 1):
+        res = await self.get_collections(username, page=page)
+
+        for collection in res["data"]:
+            if collection['label'] == collection_name:
+                return await self.get_collections(username,
+                                                  collection['id'],
+                                                  purity=purity,
+                                                  page=page)
+
+        return []
