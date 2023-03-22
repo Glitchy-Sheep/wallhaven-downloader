@@ -1,4 +1,5 @@
 import os
+import http
 from dataclasses import dataclass
 from functools import partial
 from contextlib import suppress
@@ -8,6 +9,7 @@ import aiohttp
 import aiofiles
 import aiofiles.os
 
+from aiolimiter import AsyncLimiter
 from tqdm.asyncio import tqdm
 
 
@@ -28,10 +30,11 @@ async def default_fail_handler_callback(fail_info: DownloadFileInfo):
 
 class ConcurrentDownloader:
     def __init__(self,
-                 concurrent_tasks_limit=1,
-                 show_total_progress=True,
-                 show_task_progress=False,
-                 main_pbar_pos=0,
+                 concurrent_tasks_limit: int = 1,
+                 show_total_progress: bool = True,
+                 show_task_progress: bool = False,
+                 main_pbar_pos: int = 0,
+                 aio_limiter: AsyncLimiter = AsyncLimiter(float('inf'), 1),
                  fail_callback=default_fail_handler_callback):
         # callbacks
         self.fail_callback = fail_callback
@@ -41,16 +44,17 @@ class ConcurrentDownloader:
         self.show_total_progress = show_total_progress
         self.show_task_progress = show_task_progress
         self._general_pbar_pos = main_pbar_pos
+        self._aio_limiter = aio_limiter
 
         # Task managing containers
-        self.pending_tasks:        list[DownloadFileInfo] = []
-        self._in_progress_tasks:    list[DownloadFileInfo] = []
-        self.finished_tasks:       list[DownloadFileInfo] = []
-        self._task_workers:         list[asyncio.Task] = []
+        self.pending_tasks:         list[DownloadFileInfo] = []
+        self._running_tasks:        list[DownloadFileInfo] = []
+        self.finished_tasks:        list[DownloadFileInfo] = []
         self.failed_tasks:          list[DownloadFileInfo] = []
+        self._task_workers:         list[asyncio.Task] = []
 
         # File managing containers (very important because of file locks)
-        # clean up method will clean it up if something fails (and also delete trash)
+        # Clean up method will use it to close all opened files and delete them
         self.opened_files_fds = []
 
     @staticmethod
@@ -93,29 +97,34 @@ class ConcurrentDownloader:
         save_path = os.path.join(task_info.save_dir, task_info.filename)
         os.makedirs(task_info.save_dir, exist_ok=True)
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(task_info.url) as response:
-                total_size = self._get_filesize_from_response(response)
-                relative_pbar_pos = self._general_pbar_pos + pbar_pos + 1
-                task_pbar = self._create_task_pbar(total_size, task_info,
-                                                   relative_pbar_pos)
+        async with self._aio_limiter:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(task_info.url) as response:
+                    if response.status == http.HTTPStatus.TOO_MANY_REQUESTS:
+                        raise aiohttp.ClientResponseError(
+                            status=response.status, message="Too many requests hit.")
 
-                try:
-                    chunk_size = task_info.chunk_size
-                    await self._write_data_to_file(response,
-                                                   save_path,
-                                                   chunk_size,
-                                                   task_pbar)
-                except (OSError, aiohttp.ClientResponseError):
-                    await self.fail_callback(task_info)
+                    total_size = self._get_filesize_from_response(response)
+                    relative_pbar_pos = self._general_pbar_pos + pbar_pos + 1
+                    task_pbar = self._create_task_pbar(total_size, task_info,
+                                                       relative_pbar_pos)
 
-                task_pbar.close()
+                    try:
+                        chunk_size = task_info.chunk_size
+                        await self._write_data_to_file(response,
+                                                       save_path,
+                                                       chunk_size,
+                                                       task_pbar)
+                    except (OSError, aiohttp.ClientResponseError):
+                        await self.fail_callback(task_info)
+
+                    task_pbar.close()
 
     async def _failure_cleanup(self):
         for fd in self.opened_files_fds:
             os.close(fd)
 
-        for unfinished_task in self._in_progress_tasks:
+        for unfinished_task in self._running_tasks:
             path = os.path.join(unfinished_task.save_dir, unfinished_task.filename)
             if await aiofiles.os.path.exists(path):
                 with suppress(FileNotFoundError):
@@ -127,20 +136,20 @@ class ConcurrentDownloader:
         if filename is None:
             filename = os.path.basename(url)
 
-        new_task = DownloadFileInfo(url=url,
-                                    filename=filename,
-                                    save_dir=save_dir,
-                                    chunk_size=chunk_size)
-
-        self.pending_tasks.append(new_task)
+        self.pending_tasks.append(DownloadFileInfo(
+            url=url,
+            filename=filename,
+            save_dir=save_dir,
+            chunk_size=chunk_size)
+        )
 
     def _move_task_from_running_to_finished(self, _future_pholder, task_info):
-        self._in_progress_tasks.remove(task_info)
+        self._running_tasks.remove(task_info)
         self.finished_tasks.append(task_info)
 
     async def _assign_task_to_worker(self, pbar_pos):
         task_info = self.pending_tasks.pop()
-        self._in_progress_tasks.append(task_info)
+        self._running_tasks.append(task_info)
         task = asyncio.create_task(
             self._download_single_file(task_info, pbar_pos), name=str(pbar_pos)
         )
@@ -157,7 +166,7 @@ class ConcurrentDownloader:
             await self._assign_task_to_worker(i)
 
         # if any task is finished - replace it with a new one from pending
-        while self.pending_tasks or self._in_progress_tasks:
+        while self.pending_tasks or self._running_tasks:
             try:
                 done, pending = await asyncio.wait(self._task_workers,
                                                    return_when=asyncio.FIRST_COMPLETED)
