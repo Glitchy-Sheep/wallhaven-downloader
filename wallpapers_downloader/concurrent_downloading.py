@@ -36,14 +36,14 @@ class ConcurrentDownloader:
                  main_pbar_pos: int = 0,
                  aio_limiter: AsyncLimiter = AsyncLimiter(float('inf'), 1),
                  fail_callback=default_fail_handler_callback):
-        # callbacks
+        # Callbacks
         self.fail_callback = fail_callback
 
         # Settings
         self.concurrent_tasks_limit = concurrent_tasks_limit
         self.show_total_progress = show_total_progress
         self.show_task_progress = show_task_progress
-        self._general_pbar_pos = main_pbar_pos
+        self._main_pbar_pos = main_pbar_pos
         self._aio_limiter = aio_limiter
 
         # Task managing containers
@@ -55,6 +55,7 @@ class ConcurrentDownloader:
 
         # File managing containers (very important because of file locks)
         # Clean up method will use it to close all opened files and delete them
+        # if any error while writing to the files occurred
         self.opened_files_fds = []
 
     @staticmethod
@@ -66,8 +67,8 @@ class ConcurrentDownloader:
             total_size = None
         return total_size
 
-    def _create_task_pbar(self, size: int, task_info: DownloadFileInfo, pos=1):
-        task_pbar = tqdm(total=size,
+    def _create_task_pbar(self, filesize: int, task_info: DownloadFileInfo, pos=1):
+        task_pbar = tqdm(total=filesize,
                          unit='iB',
                          unit_scale=True,
                          desc=task_info.filename,
@@ -79,7 +80,7 @@ class ConcurrentDownloader:
     def _create_general_pbar(self, task_count):
         general_pbar = tqdm(total=task_count,
                             leave=True,
-                            position=self._general_pbar_pos,
+                            position=self._main_pbar_pos,
                             disable=(not self.show_total_progress))
         return general_pbar
 
@@ -105,7 +106,7 @@ class ConcurrentDownloader:
                             status=response.status, message="Too many requests hit.")
 
                     total_size = self._get_filesize_from_response(response)
-                    relative_pbar_pos = self._general_pbar_pos + pbar_pos + 1
+                    relative_pbar_pos = self._main_pbar_pos + pbar_pos + 1
                     task_pbar = self._create_task_pbar(total_size, task_info,
                                                        relative_pbar_pos)
 
@@ -143,17 +144,26 @@ class ConcurrentDownloader:
             chunk_size=chunk_size)
         )
 
-    def _move_task_from_running_to_finished(self, _future_pholder, task_info):
+    def _get_task_from_pending(self):
+        return self.pending_tasks.pop()
+
+    # worker's done callback
+    def _mark_task_as_finished(self, _future_pholder, task_info):
         self._running_tasks.remove(task_info)
         self.finished_tasks.append(task_info)
 
-    async def _assign_task_to_worker(self, pbar_pos):
-        task_info = self.pending_tasks.pop()
+    def _mark_task_as_running(self, task_info):
         self._running_tasks.append(task_info)
+
+    async def _assign_task_to_worker(self, pbar_pos):
+        task_info = self._get_task_from_pending()
+        self._mark_task_as_running(task_info)
+
         task = asyncio.create_task(
             self._download_single_file(task_info, pbar_pos), name=str(pbar_pos)
         )
-        clean_up_callback = partial(self._move_task_from_running_to_finished, task_info=task_info)
+
+        clean_up_callback = partial(self._mark_task_as_finished, task_info=task_info)
         task.add_done_callback(clean_up_callback)
         self._task_workers.append(task)
 
@@ -162,7 +172,8 @@ class ConcurrentDownloader:
         general_pbar = self._create_general_pbar(total_task_count)
 
         # assign N tasks to workers, so we will process N tasks simultaneously
-        for i in range(min(self.concurrent_tasks_limit, len(self.pending_tasks))):
+        initial_task_count = min(self.concurrent_tasks_limit, len(self.pending_tasks))
+        for i in range(initial_task_count):
             await self._assign_task_to_worker(i)
 
         # if any task is finished - replace it with a new one from pending
@@ -174,8 +185,8 @@ class ConcurrentDownloader:
                     general_pbar.update()
                     self._task_workers.remove(task)
                     if self.pending_tasks:
-                        left_pbar_pos = int(task.get_name())
-                        await self._assign_task_to_worker(left_pbar_pos)
+                        done_pbar_pos = int(task.get_name())
+                        await self._assign_task_to_worker(done_pbar_pos)
             except (asyncio.CancelledError, KeyboardInterrupt):
                 await self._failure_cleanup()
                 break
