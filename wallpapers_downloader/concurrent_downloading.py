@@ -11,6 +11,8 @@ import aiofiles.os
 
 from aiolimiter import AsyncLimiter
 from tqdm.asyncio import tqdm
+from aiohttp_retry.client import RetryClient
+from aiohttp_retry.retry_options import RetryOptionsBase, ExponentialRetry
 
 
 @dataclass
@@ -19,6 +21,24 @@ class DownloadFileInfo:
     filename: str
     save_dir: str
     chunk_size: int
+
+
+@dataclass
+class ProgressbarSettings:
+    show_total_progress: bool = True
+    show_task_progress: bool = False
+    main_pbar_pos: int = 0
+
+
+UNLIMITED_AIOLIMITER = AsyncLimiter(float('inf'), 1)
+DEFAULT_PROGRESSBAR_OPTIONS = ProgressbarSettings(True, True, 0)
+DEFAULT_RETRY_OPTIONS = ExponentialRetry(
+    # The following values are default and set "by sight" for general purpose
+    attempts=4,
+    start_timeout=1.0,
+    max_timeout=10.0,
+    statuses={429, 500, 502, 503, 504}
+)
 
 
 async def default_fail_handler_callback(fail_info: DownloadFileInfo):
@@ -31,20 +51,23 @@ async def default_fail_handler_callback(fail_info: DownloadFileInfo):
 class ConcurrentDownloader:
     def __init__(self,
                  concurrent_tasks_limit: int = 1,
-                 show_total_progress: bool = True,
-                 show_task_progress: bool = False,
-                 main_pbar_pos: int = 0,
-                 aio_limiter: AsyncLimiter = AsyncLimiter(float('inf'), 1),
+                 aio_limiter: AsyncLimiter = UNLIMITED_AIOLIMITER,
+                 progressbars_options: ProgressbarSettings = DEFAULT_PROGRESSBAR_OPTIONS,
+                 retry_options: RetryOptionsBase = DEFAULT_RETRY_OPTIONS,
                  fail_callback=default_fail_handler_callback):
+
         # Callbacks
         self.fail_callback = fail_callback
 
-        # Settings
-        self.concurrent_tasks_limit = concurrent_tasks_limit
-        self.show_total_progress = show_total_progress
-        self.show_task_progress = show_task_progress
-        self._main_pbar_pos = main_pbar_pos
+        # Progressbars Settings
+        self.show_total_progress = progressbars_options.show_total_progress
+        self.show_task_progress = progressbars_options.show_task_progress
+        self._main_pbar_pos = progressbars_options.main_pbar_pos
+
+        # Downloading settings
         self._aio_limiter = aio_limiter
+        self._retry_options = retry_options
+        self.concurrent_tasks_limit = concurrent_tasks_limit
 
         # Task managing containers
         self.pending_tasks:         list[DownloadFileInfo] = []
@@ -99,27 +122,28 @@ class ConcurrentDownloader:
         os.makedirs(task_info.save_dir, exist_ok=True)
 
         async with self._aio_limiter:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(task_info.url) as response:
+            try:
+                async with RetryClient(retry_options=self._retry_options) as session:
+                    response = await session.get(task_info.url)
                     if response.status == http.HTTPStatus.TOO_MANY_REQUESTS:
-                        raise aiohttp.ClientResponseError(
-                            status=response.status, message="Too many requests hit.")
+                        # todo: handle 429 statuses somehow instead of just skipping
+                        print("Too many requests hit, downloading is skipped")
+                        print("Please specify new limiter settings")
+                        return
 
                     total_size = self._get_filesize_from_response(response)
                     relative_pbar_pos = self._main_pbar_pos + pbar_pos + 1
                     task_pbar = self._create_task_pbar(total_size, task_info,
                                                        relative_pbar_pos)
 
-                    try:
-                        chunk_size = task_info.chunk_size
-                        await self._write_data_to_file(response,
-                                                       save_path,
-                                                       chunk_size,
-                                                       task_pbar)
-                    except (OSError, aiohttp.ClientResponseError):
-                        await self.fail_callback(task_info)
-
+                    chunk_size = task_info.chunk_size
+                    await self._write_data_to_file(response,
+                                                   save_path,
+                                                   chunk_size,
+                                                   task_pbar)
                     task_pbar.close()
+            except (OSError, aiohttp.ClientResponseError, aiohttp.ClientError):
+                await self.fail_callback(task_info)
 
     async def _failure_cleanup(self):
         for fd in self.opened_files_fds:
