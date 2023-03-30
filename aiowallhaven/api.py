@@ -8,6 +8,7 @@ from typing import Dict
 import aiohttp
 import aiohttp.web
 from aiolimiter import AsyncLimiter
+from aiohttp_retry import RetryClient
 
 from aiowallhaven import api_exception_reasons as exception_reasons
 from aiowallhaven.wallhaven_types import (
@@ -54,7 +55,7 @@ class WallHavenAPI(object):
         }
 
         async with RATE_LIMIT:
-            async with aiohttp.ClientSession() as session:
+            async with RetryClient() as session:
                 req_url = f"{BASE_API_URL}/{VERSION}/{url}"
                 async with session.get(req_url, headers=headers, params=params) as response:
                     status_code = response.status
