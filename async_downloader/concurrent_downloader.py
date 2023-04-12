@@ -95,6 +95,20 @@ class ConcurrentDownloader:
             total_size = None
         return total_size
 
+    @staticmethod
+    def _get_response_exception(response: aiohttp.ClientResponse):
+        try:
+            response.raise_for_status()
+        except aiohttp.ClientResponseError as ex:
+            return ex
+
+    @staticmethod
+    async def _write_data_to_file(response, save_path, chunk_size, task_pbar):
+        async with aiofiles.open(save_path, 'wb') as f:
+            async for data in response.content.iter_chunked(chunk_size):
+                await f.write(data)
+                task_pbar.update(len(data))
+
     def _create_task_pbar(self, filesize: int, task_info: DownloadFileInfo, pos=1):
         task_pbar = tqdm(total=filesize,
                          unit='iB',
@@ -113,13 +127,6 @@ class ConcurrentDownloader:
                             colour="green")
         return general_pbar
 
-    @staticmethod
-    async def _write_data_to_file(response, save_path, chunk_size, task_pbar):
-        async with aiofiles.open(save_path, 'wb') as f:
-            async for data in response.content.iter_chunked(chunk_size):
-                await f.write(data)
-                task_pbar.update(len(data))
-
     async def _download_single_file(self,
                                     task_info: DownloadFileInfo,
                                     pbar_pos=1):
@@ -131,11 +138,8 @@ class ConcurrentDownloader:
                 async with RetryClient(retry_options=self._retry_options) as session:
                     response = await session.get(task_info.url)
                     if response.status != HTTPStatus.OK:
-                        try:
-                            response.raise_for_status()
-                        except aiohttp.ClientResponseError as e:
-                            task_info.exception = e
-                            task_info.status = TaskStatus.FAILED
+                        task_info.exception = self._get_response_exception(response)
+                        task_info.status = TaskStatus.FAILED
                         return task_info
 
                     total_size = self._get_filesize_from_response(response)
@@ -156,8 +160,9 @@ class ConcurrentDownloader:
 
                     task_info.status = TaskStatus.COMPLETED
                     return task_info
-        except (asyncio.CancelledError, aiohttp.ClientOSError, aiohttp.ClientError):
+        except (asyncio.CancelledError, aiohttp.ClientOSError, aiohttp.ClientError) as ex:
             await self.fail_callback(task_info)
+            task_info.exception = ex
             task_info.status = TaskStatus.FAILED
             return task_info
 
