@@ -1,55 +1,21 @@
 import os
-from enum import Enum
-from http import HTTPStatus
-from dataclasses import dataclass
-from functools import partial
-
 import asyncio
-from typing import Optional
+from http import HTTPStatus
+from functools import partial
 
 import aiohttp
 import aiofiles
 import aiofiles.os
 
-from aiolimiter import AsyncLimiter
 from tqdm.asyncio import tqdm
+from aiolimiter import AsyncLimiter
 from aiohttp_retry.client import RetryClient
 from aiohttp_retry.retry_options import RetryOptionsBase, ExponentialRetry
 
-
-class TaskStatus(Enum):
-    SCHEDULED = 0
-    IN_PROGRESS = 1
-    FAILED = 2
-    COMPLETED = 3
-
-
-@dataclass
-class DownloadFileInfo:
-    url: str
-    save_dir: str
-    filename: str
-    chunk_size: int
-    status: TaskStatus
-    exception: Optional[BaseException] = None
-
-
-@dataclass
-class ProgressbarSettings:
-    show_total_progress: bool = True
-    show_task_progress: bool = False
-    main_pbar_pos: int = 0
-
-
-UNLIMITED_AIOLIMITER = AsyncLimiter(1000000, 1)
-DEFAULT_PROGRESSBAR_OPTIONS = ProgressbarSettings(True, True, 0)
-DEFAULT_RETRY_OPTIONS = ExponentialRetry(
-    # The following values are default and set "by sight" for general purpose
-    attempts=4,
-    start_timeout=1.0,
-    max_timeout=10.0,
-    statuses={429, 500, 502, 503, 504}
-)
+from async_downloader.types import (
+    DownloadFileInfo, TaskStatus, ProgressbarSettings)
+from async_downloader.constants import (
+    DEFAULT_RETRY_OPTIONS, DEFAULT_PROGRESSBAR_OPTIONS, UNLIMITED_AIOLIMITER)
 
 
 async def default_fail_handler_callback(fail_info: DownloadFileInfo):
