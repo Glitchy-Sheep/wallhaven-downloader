@@ -10,13 +10,14 @@ from dataclasses import dataclass, asdict
 @dataclass
 class Resolution:
     """
-        Object representing picture resolution as x and y (both must be positive).
+    Object representing picture resolution as x and y (both must be positive).
 
-        Can be represented in resolution format
-        (e.g. 1920x1080)
+    Can be represented in resolution format
+    (e.g. 1920x1080)
 
-        :raise InvalidResolution: either x or y are negative values
+    :raise InvalidResolution: either x or y are negative values
     """
+
     x: int
     y: int
 
@@ -37,13 +38,14 @@ class Resolution:
 @dataclass
 class Ratio(Resolution):
     """
-        Object representing picture ratio as x and y (both must be positive).
+    Object representing picture ratio as x and y (both must be positive).
 
-        Can be represented in ratio format
-        (e.g. 16x9)
+    Can be represented in ratio format
+    (e.g. 16x9)
 
-        :raise InvalidRatio: either x or y are negative values
+    :raise InvalidRatio: either x or y are negative values
     """
+
     class InvalidRatio(Exception):
         pass
 
@@ -55,8 +57,9 @@ class Ratio(Resolution):
 @dataclass
 class Purity:
     """
-        Object representing purity filter (sfw, sketchy, nsfw)
+    Object representing purity filter (sfw, sketchy, nsfw)
     """
+
     sfw: bool = False
     sketchy: bool = False
     nsfw: bool = False
@@ -74,8 +77,9 @@ class Purity:
 @dataclass
 class Category:
     """
-        Object representing category filter (general, anime, people)
+    Object representing category filter (general, anime, people)
     """
+
     general: bool = False
     anime: bool = False
     people: bool = False

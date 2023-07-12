@@ -12,13 +12,22 @@ from aiohttp_retry import RetryClient
 
 from aiowallhaven import api_exception_reasons as exception_reasons
 from aiowallhaven.wallhaven_types import (
-    Purity, Category, Color, Order, Sorting, TopRange, Resolution, Ratio)
+    Purity,
+    Category,
+    Color,
+    Order,
+    Sorting,
+    TopRange,
+    Resolution,
+    Ratio,
+)
 
 
 logging.basicConfig(
-    format='%(asctime)s %(levelname)-8s %(message)s',
+    format="%(asctime)s %(levelname)-8s %(message)s",
     level=logging.INFO,
-    datefmt='%Y-%m-%d %H:%M:%S')
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 LOG = logging.getLogger(__name__)
 VERSION = "v1"
@@ -40,11 +49,11 @@ class WallHavenAPI(object):
 
     async def _get_method(self, url: str, params: Dict = None) -> Dict:
         r"""
-            Make an async GET request to https://wallhaven.cc
+        Make an async GET request to https://wallhaven.cc
 
-            :param url: URL for the new :class:`aiohttp.ClientSession` object.
-            :param params: Additional parameters for get method
-            :return: :class: `JSON` object
+        :param url: URL for the new :class:`aiohttp.ClientSession` object.
+        :param params: Additional parameters for get method
+        :return: :class: `JSON` object
         """
 
         if params is None:
@@ -57,7 +66,9 @@ class WallHavenAPI(object):
         async with RATE_LIMIT:
             async with RetryClient() as session:
                 req_url = f"{BASE_API_URL}/{VERSION}/{url}"
-                async with session.get(req_url, headers=headers, params=params) as response:
+                async with session.get(
+                    req_url, headers=headers, params=params
+                ) as response:
                     status_code = response.status
                     match status_code:
                         case HTTPStatus.OK:
@@ -76,7 +87,8 @@ class WallHavenAPI(object):
                         case _:  # general error
                             raise aiohttp.web.HTTPException(
                                 reason=exception_reasons.GeneralError.format(
-                                    session=session, status_code=status_code)
+                                    session=session, status_code=status_code
+                                )
                             )
 
     @staticmethod
@@ -89,63 +101,65 @@ class WallHavenAPI(object):
 
     async def get_wallpaper(self, wallpaper_id: str):
         r"""
-            Get the details about wallpaper with given id.
-        
-            :param wallpaper_id:
-                A string representing a unique id assigned to the wallpaper.
+        Get the details about wallpaper with given id.
 
-            :return:
-                :class: `JSON` object
+        :param wallpaper_id:
+            A string representing a unique id assigned to the wallpaper.
+
+        :return:
+            :class: `JSON` object
         """
 
         url = f"w/{wallpaper_id}"
         return await self._get_method(url)
 
-    async def search(self,
-                     q: str = None,
-                     category: Category = None,
-                     purity: Purity = None,
-                     sorting: Sorting = None,
-                     order: Order = None,
-                     toprange: TopRange = None,
-                     atleast: Resolution = None,
-                     resolutions: list[Resolution] = None,
-                     ratios: list[Ratio] = None,
-                     color: Color = None,
-                     page: int = None,
-                     seed: str = None):
+    async def search(
+        self,
+        q: str = None,
+        category: Category = None,
+        purity: Purity = None,
+        sorting: Sorting = None,
+        order: Order = None,
+        toprange: TopRange = None,
+        atleast: Resolution = None,
+        resolutions: list[Resolution] = None,
+        ratios: list[Ratio] = None,
+        color: Color = None,
+        page: int = None,
+        seed: str = None,
+    ):
         r"""
-            Perform search through Wallhaven.
-            If no additional parameters are set
-            the latest SFW wallpapers will be returned.
+        Perform search through Wallhaven.
+        If no additional parameters are set
+        the latest SFW wallpapers will be returned.
 
-            :param q:
-                Search query. Your main way of finding what you're looking for.
-            :param category:
-                Only wallpapers with specified categories will be returned.
-            :param purity:
-                Only wallpapers with specified purities will be returned.
-            :param sorting:
-                *(optional)* Method of sorting results.
-            :param order:
-                *(optional)* Sorting order. Default order is desc.
-            :param toprange:
-                *(optional)* Specify toplist sorting options.
-                Sorting MUST be set to 'toplist'.
-            :param atleast:
-                *(optional)* Minimum resolution allowed. (e.g. "1920x1080")
-            :param resolutions:
-                *(optional)* List of exact wallpaper resolutions.
-            :param ratios:
-                *(optional)* List of exact ratios.
-            :param color:
-                *(optional)* Search by color.
-            :param page:
-                *(optional)* Pagination. Not actually infinite.
-            :param seed:
-                *(optional)* seed for random results. Example: ``[a-zA-Z0-9]{6}``.
+        :param q:
+            Search query. Your main way of finding what you're looking for.
+        :param category:
+            Only wallpapers with specified categories will be returned.
+        :param purity:
+            Only wallpapers with specified purities will be returned.
+        :param sorting:
+            *(optional)* Method of sorting results.
+        :param order:
+            *(optional)* Sorting order. Default order is desc.
+        :param toprange:
+            *(optional)* Specify toplist sorting options.
+            Sorting MUST be set to 'toplist'.
+        :param atleast:
+            *(optional)* Minimum resolution allowed. (e.g. "1920x1080")
+        :param resolutions:
+            *(optional)* List of exact wallpaper resolutions.
+        :param ratios:
+            *(optional)* List of exact ratios.
+        :param color:
+            *(optional)* Search by color.
+        :param page:
+            *(optional)* Pagination. Not actually infinite.
+        :param seed:
+            *(optional)* seed for random results. Example: ``[a-zA-Z0-9]{6}``.
 
-            :return: :class: `JSON` object
+        :return: :class: `JSON` object
         """
 
         query_params: dict = {}
@@ -209,80 +223,82 @@ class WallHavenAPI(object):
             query_params["seed"] = seed
 
         return await self._get_method(
-            "search" if not query_params else
-            f"search?{'&'.join('{}={}'.format(*i) for i in query_params.items())}")
+            "search"
+            if not query_params
+            else f"search?{'&'.join('{}={}'.format(*i) for i in query_params.items())}"
+        )
 
-    async def get_tag(self, tag: int):    
+    async def get_tag(self, tag: int):
         r"""
-            Return the information about a specific tag.
+        Return the information about a specific tag.
 
-            :param tag: an integer associated with a tag.
+        :param tag: an integer associated with a tag.
 
-            :return: :class: `JSON` object
+        :return: :class: `JSON` object
         """
         return await self._get_method(f"tag/{tag}")
 
     async def my_settings(self):
         r"""
-            Return the user's settings. *API key is required for this method.*
+        Return the user's settings. *API key is required for this method.*
 
-            :return: :class: `JSON` object
+        :return: :class: `JSON` object
         """
         return await self._get_method("settings")
 
-    async def get_collections(self, username: str = None,
-                              collection_id: int = None,
-                              purity: Purity = None,
-                              page: int = 1):
+    async def get_collections(
+        self,
+        username: str = None,
+        collection_id: int = None,
+        purity: Purity = None,
+        page: int = 1,
+    ):
         r"""
-            Allows a user to see their own or public collection.
+        Allows a user to see their own or public collection.
 
-            :param username:
-                *(optional)* Specifies a username of user, whose collections you
-                are looking for.
-            :param collection_id:
-                *(optional)* Argument to parse through user collection having
-                the indicated ID.
-            :param purity:
-                *(optional)* Argument to choose purity of returned results
-                (e.g. ["sfw", "sketchy", "nsfw"]).
-            :param page:
-                Page of the collection you are looking for.
+        :param username:
+            *(optional)* Specifies a username of user, whose collections you
+            are looking for.
+        :param collection_id:
+            *(optional)* Argument to parse through user collection having
+            the indicated ID.
+        :param purity:
+            *(optional)* Argument to choose purity of returned results
+            (e.g. ["sfw", "sketchy", "nsfw"]).
+        :param page:
+            Page of the collection you are looking for.
 
-            :return: :class: `JSON` object
+        :return: :class: `JSON` object
         """
 
         query_url = "collections"
 
         if username:
-            query_url += '/' + username
+            query_url += "/" + username
 
         if collection_id:
-            query_url += '/' + str(collection_id)
+            query_url += "/" + str(collection_id)
 
         if purity:
-            query_url += '?purity=' + await self._purity(purity)
+            query_url += "?purity=" + await self._purity(purity)
 
         return await self._get_method(query_url, params={"page": page})
 
-    async def get_user_uploads(self,
-                               username: str,
-                               purity: Purity = None,
-                               page=1):
+    async def get_user_uploads(self, username: str, purity: Purity = None, page=1):
         r"""
-            Allows a user to get somebody's uploads.
-            This function is an alias for search.
+        Allows a user to get somebody's uploads.
+        This function is an alias for search.
 
-            :param username:
-                Specifies a user which uploads you are looking for.
-            :param purity:
-                *(optional)* List with elements representing purity.
-                Only wallpapers with purities in the list will be returned.
-                (e.g. ``['sfw', 'sketchy']`` - only sfw or sketchy)
-            :param page:
-                *(optional)* Page of the user's uploads. First page by default.
+        :param username:
+            Specifies a user which uploads you are looking for.
+        :param purity:
+            *(optional)* List with elements representing purity.
+            Only wallpapers with purities in the list will be returned.
+            (e.g. ``['sfw', 'sketchy']`` - only sfw or sketchy)
+        :param page:
+            *(optional)* Page of the user's uploads. First page by default.
 
-            :return: :class: `JSON` object
+        :return: :class: `JSON` object
         """
 
         if purity is None:
@@ -290,18 +306,15 @@ class WallHavenAPI(object):
         res = await self.search(q=f"@{username}", page=page, purity=purity)
         return res
 
-    async def get_user_collection(self,
-                                  username: str,
-                                  collection_name: str,
-                                  purity: Purity = None,
-                                  page: int = 1):
+    async def get_user_collection(
+        self, username: str, collection_name: str, purity: Purity = None, page: int = 1
+    ):
         res = await self.get_collections(username, page=page)
 
         for collection in res["data"]:
-            if collection['label'] == collection_name:
-                return await self.get_collections(username,
-                                                  collection['id'],
-                                                  purity=purity,
-                                                  page=page)
+            if collection["label"] == collection_name:
+                return await self.get_collections(
+                    username, collection["id"], purity=purity, page=page
+                )
 
         return []

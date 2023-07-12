@@ -5,7 +5,15 @@ from datetime import datetime as dt  # for "sorting" test
 
 from aiowallhaven.api import WallHavenAPI
 from aiowallhaven.wallhaven_types import (
-    Ratio, Resolution, Sorting, TopRange, Order, Color, Purity, Category)
+    Ratio,
+    Resolution,
+    Sorting,
+    TopRange,
+    Order,
+    Color,
+    Purity,
+    Category,
+)
 
 API_KEY = os.getenv("WALLHAVEN_API_KEY")
 if not API_KEY:
@@ -24,9 +32,8 @@ class ApiTestSearch(unittest.IsolatedAsyncioTestCase):
     # if you know the issue, please open pull request with possible decision
     def setUp(self):
         warnings.filterwarnings(
-            action="ignore",
-            message="unclosed",
-            category=ResourceWarning)
+            action="ignore", message="unclosed", category=ResourceWarning
+        )
         return super().setUp()
 
     async def test_query(self):
@@ -39,7 +46,7 @@ class ApiTestSearch(unittest.IsolatedAsyncioTestCase):
         all_categories = [
             Category(general=True),
             Category(anime=True),
-            Category(people=True)
+            Category(people=True),
         ]
 
         for category in all_categories:
@@ -49,11 +56,7 @@ class ApiTestSearch(unittest.IsolatedAsyncioTestCase):
                 self.assertIn(wallpaper["category"], category._get_active_names())
 
     async def test_purity(self):
-        all_purity = [
-            Purity(sfw=True),
-            Purity(sketchy=True),
-            Purity(nsfw=True)
-        ]
+        all_purity = [Purity(sfw=True), Purity(sketchy=True), Purity(nsfw=True)]
 
         for purity in all_purity:
             response = await api.search(purity=purity)
@@ -128,7 +131,7 @@ class ApiTestSearch(unittest.IsolatedAsyncioTestCase):
 
         wallpapers = response["data"]
         for wallpaper in wallpapers:
-            self.assertEqual(target_ratio.x/target_ratio.y, float(wallpaper["ratio"]))
+            self.assertEqual(target_ratio.x / target_ratio.y, float(wallpaper["ratio"]))
 
     async def test_color(self):
         target_color = Color.black
@@ -181,9 +184,8 @@ class ApiTestGet(unittest.IsolatedAsyncioTestCase):
     # if you know the issue, please open pull request with possible decision
     def setUp(self):
         warnings.filterwarnings(
-            action="ignore",
-            message="unclosed",
-            category=ResourceWarning)
+            action="ignore", message="unclosed", category=ResourceWarning
+        )
         return super().setUp()
 
     async def test_get_collections(self):
@@ -196,9 +198,9 @@ class ApiTestGet(unittest.IsolatedAsyncioTestCase):
         # if there is something in the list - take first collection
         if response["data"]:
             collection_id = response["data"][0]["id"]
-            response = await api.get_collections(username,
-                                                 collection_id,
-                                                 purity=target_purity)
+            response = await api.get_collections(
+                username, collection_id, purity=target_purity
+            )
 
             collection_wallpapers = response["data"]
             for wallpaper in collection_wallpapers:
@@ -219,7 +221,7 @@ class ApiTestGet(unittest.IsolatedAsyncioTestCase):
     async def test_get_wallpaper(self):
         test_wallpaper_id = "e7jj6r"
         res = await api.get_wallpaper(test_wallpaper_id)
-        self.assertEqual(res['data']['id'], test_wallpaper_id)
+        self.assertEqual(res["data"]["id"], test_wallpaper_id)
         self.assertIsNotNone(res["data"])
 
 

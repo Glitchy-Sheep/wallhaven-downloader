@@ -12,10 +12,12 @@ from aiolimiter import AsyncLimiter
 from aiohttp_retry.client import RetryClient
 from aiohttp_retry.retry_options import RetryOptionsBase, ExponentialRetry
 
-from async_downloader.types import (
-    DownloadFileInfo, TaskStatus, ProgressbarSettings)
+from async_downloader.types import DownloadFileInfo, TaskStatus, ProgressbarSettings
 from async_downloader.constants import (
-    DEFAULT_RETRY_OPTIONS, DEFAULT_PROGRESSBAR_OPTIONS, UNLIMITED_AIOLIMITER)
+    DEFAULT_RETRY_OPTIONS,
+    DEFAULT_PROGRESSBAR_OPTIONS,
+    UNLIMITED_AIOLIMITER,
+)
 
 
 async def default_fail_handler_callback(fail_info: DownloadFileInfo):
@@ -25,13 +27,14 @@ async def default_fail_handler_callback(fail_info: DownloadFileInfo):
 
 
 class ConcurrentDownloader:
-    def __init__(self,
-                 concurrent_tasks_limit: int = 1,
-                 progressbars_options: ProgressbarSettings = DEFAULT_PROGRESSBAR_OPTIONS,
-                 aio_limiter: AsyncLimiter = UNLIMITED_AIOLIMITER,
-                 retry_options: RetryOptionsBase = DEFAULT_RETRY_OPTIONS,
-                 fail_callback=default_fail_handler_callback):
-
+    def __init__(
+        self,
+        concurrent_tasks_limit: int = 1,
+        progressbars_options: ProgressbarSettings = DEFAULT_PROGRESSBAR_OPTIONS,
+        aio_limiter: AsyncLimiter = UNLIMITED_AIOLIMITER,
+        retry_options: RetryOptionsBase = DEFAULT_RETRY_OPTIONS,
+        fail_callback=default_fail_handler_callback,
+    ):
         # Callbacks
         self.fail_callback = fail_callback
 
@@ -46,11 +49,11 @@ class ConcurrentDownloader:
         self.concurrent_tasks_limit = concurrent_tasks_limit
 
         # Task managing containers
-        self.pending_tasks:         list[DownloadFileInfo] = []
-        self._running_tasks:        list[DownloadFileInfo] = []
-        self.finished_tasks:        list[DownloadFileInfo] = []
-        self.failed_tasks:          list[DownloadFileInfo] = []
-        self._task_workers:         list[asyncio.Task] = []
+        self.pending_tasks: list[DownloadFileInfo] = []
+        self._running_tasks: list[DownloadFileInfo] = []
+        self.finished_tasks: list[DownloadFileInfo] = []
+        self.failed_tasks: list[DownloadFileInfo] = []
+        self._task_workers: list[asyncio.Task] = []
 
     @staticmethod
     def _get_filesize_from_response(response):
@@ -70,32 +73,34 @@ class ConcurrentDownloader:
 
     @staticmethod
     async def _write_data_to_file(response, save_path, chunk_size, task_pbar):
-        async with aiofiles.open(save_path, 'wb') as f:
+        async with aiofiles.open(save_path, "wb") as f:
             async for data in response.content.iter_chunked(chunk_size):
                 await f.write(data)
                 task_pbar.update(len(data))
 
     def _create_task_pbar(self, filesize: int, task_info: DownloadFileInfo, pos=1):
-        task_pbar = tqdm(total=filesize,
-                         unit='iB',
-                         unit_scale=True,
-                         desc=task_info.filename,
-                         leave=False,
-                         position=pos,
-                         disable=(not self.show_task_progress))
+        task_pbar = tqdm(
+            total=filesize,
+            unit="iB",
+            unit_scale=True,
+            desc=task_info.filename,
+            leave=False,
+            position=pos,
+            disable=(not self.show_task_progress),
+        )
         return task_pbar
 
     def _create_general_pbar(self, task_count):
-        general_pbar = tqdm(total=task_count,
-                            leave=True,
-                            position=self._main_pbar_pos,
-                            disable=(not self.show_total_progress),
-                            colour="green")
+        general_pbar = tqdm(
+            total=task_count,
+            leave=True,
+            position=self._main_pbar_pos,
+            disable=(not self.show_total_progress),
+            colour="green",
+        )
         return general_pbar
 
-    async def _download_single_file(self,
-                                    task_info: DownloadFileInfo,
-                                    pbar_pos=1):
+    async def _download_single_file(self, task_info: DownloadFileInfo, pbar_pos=1):
         try:
             save_path = os.path.join(task_info.save_dir, task_info.filename)
             os.makedirs(task_info.save_dir, exist_ok=True)
@@ -112,21 +117,24 @@ class ConcurrentDownloader:
                     relative_pbar_pos = self._main_pbar_pos + pbar_pos
 
                     try:
-                        task_pbar = self._create_task_pbar(total_size,
-                                                           task_info,
-                                                           relative_pbar_pos)
+                        task_pbar = self._create_task_pbar(
+                            total_size, task_info, relative_pbar_pos
+                        )
 
-                        await self._write_data_to_file(response,
-                                                       save_path,
-                                                       task_info.chunk_size,
-                                                       task_pbar)
+                        await self._write_data_to_file(
+                            response, save_path, task_info.chunk_size, task_pbar
+                        )
                     finally:
                         task_pbar.clear()
                         task_pbar.close()
 
                     task_info.status = TaskStatus.COMPLETED
                     return task_info
-        except (asyncio.CancelledError, aiohttp.ClientOSError, aiohttp.ClientError) as ex:
+        except (
+            asyncio.CancelledError,
+            aiohttp.ClientOSError,
+            aiohttp.ClientError,
+        ) as ex:
             await self.fail_callback(task_info)
             task_info.exception = ex
             task_info.status = TaskStatus.FAILED
@@ -141,12 +149,14 @@ class ConcurrentDownloader:
         if filename is None:
             filename = os.path.basename(url)
 
-        self.pending_tasks.append(DownloadFileInfo(
-            url=url,
-            save_dir=save_dir,
-            filename=filename,
-            chunk_size=chunk_size,
-            status=TaskStatus.SCHEDULED)
+        self.pending_tasks.append(
+            DownloadFileInfo(
+                url=url,
+                save_dir=save_dir,
+                filename=filename,
+                chunk_size=chunk_size,
+                status=TaskStatus.SCHEDULED,
+            )
         )
 
     # worker's done callback
@@ -187,8 +197,9 @@ class ConcurrentDownloader:
             await self._assign_task_to_worker(done_pbar_pos)
 
     async def wait_for_tasks(self, tasks, general_pbar):
-        done, running_tasks = await asyncio.wait(tasks,
-                                                 return_when=asyncio.FIRST_COMPLETED)
+        done, running_tasks = await asyncio.wait(
+            tasks, return_when=asyncio.FIRST_COMPLETED
+        )
         for task in done:
             # if any task is failed - cancel others
             task_info: DownloadFileInfo = task.result()
