@@ -24,7 +24,7 @@ uploads_arg_name = "uploads"
 purity_arg_name = "purity"
 category_arg_name = "category"
 sync_arg_name = "sync"
-downloads_path_arg_name = "downloads-path"
+downloads_path_arg_name = "downloads_path"
 verbose_arg_name = "verbose"
 workers_arg_name = "workers"
 
