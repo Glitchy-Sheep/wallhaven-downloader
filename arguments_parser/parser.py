@@ -27,7 +27,7 @@ sync_arg_name = "sync"
 downloads_path_arg_name = "downloads_path"
 verbose_arg_name = "verbose"
 workers_arg_name = "workers"
-
+api_key_arg_name = "api_key"
 
 parser.add_argument(
     f"--{info_arg_name}",
@@ -106,6 +106,13 @@ parser.add_argument(
     help=help_messages.HELP_MSG_THREADS,
 )
 
+
+parser.add_argument(
+    f"--{api_key_arg_name}",
+    f"-{api_key_arg_name[0]}",
+    type=str,
+    metavar="",
+)
 
 args = vars(parser.parse_args())
 
@@ -192,3 +199,7 @@ def get_workers_count():
     if threads <= 0:
         threads = DEFAULT_THREADS_COUNT
     return threads
+
+
+def get_api_key():
+    return args[api_key_arg_name]

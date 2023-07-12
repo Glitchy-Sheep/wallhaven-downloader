@@ -33,7 +33,7 @@ class WallhavenDownloader:
 
     def __init__(
         self,
-        token: str,
+        api_key: str,
         downloads_directory: str,
         tasks: list[CollectionTask | UploadTask],
         workers: int,
@@ -41,7 +41,7 @@ class WallhavenDownloader:
         category_filter: Category,
     ):
         self._LOG = get_downloader_logger()
-        self._api = WallHavenAPI(api_key=token)
+        self._api = WallHavenAPI(api_key=api_key)
         self._downloads_directory = downloads_directory
         self._tasks = tasks
         self._workers = workers
