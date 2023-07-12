@@ -32,7 +32,6 @@ workers_arg_name = "workers"
 parser.add_argument(
     f"--{info_arg_name}",
     f"-{info_arg_name[0]}",
-    required=False,
     type=str,
     nargs="+",
     metavar="",
@@ -42,7 +41,6 @@ parser.add_argument(
 parser.add_argument(
     f"--{collections_arg_name}",
     f"-{collections_arg_name[0]}",
-    required=False,
     type=str,
     nargs="+",
     action="append",
@@ -53,7 +51,6 @@ parser.add_argument(
 parser.add_argument(
     f"--{uploads_arg_name}",
     f"-{uploads_arg_name[0]}",
-    required=False,
     type=str,
     nargs="+",
     metavar="",
@@ -62,7 +59,6 @@ parser.add_argument(
 
 parser.add_argument(
     f"--{purity_arg_name}",
-    required=False,
     type=str,
     nargs="+",
     metavar="",
@@ -71,7 +67,6 @@ parser.add_argument(
 
 parser.add_argument(
     f"--{category_arg_name}",
-    required=False,
     type=str,
     nargs="+",
     metavar="",
@@ -81,7 +76,6 @@ parser.add_argument(
 parser.add_argument(
     f"--{sync_arg_name}",
     f"-{sync_arg_name[0]}",
-    required=False,
     action="store_true",
     help=help_messages.HELP_MSG_SYNC,
 )
@@ -89,7 +83,6 @@ parser.add_argument(
 parser.add_argument(
     f"--{downloads_path_arg_name}",
     f"-{downloads_path_arg_name[0]}",
-    required=False,
     type=str,
     metavar="",
     default=DEFAULT_DOWNLOADS_PATH,
@@ -99,7 +92,6 @@ parser.add_argument(
 parser.add_argument(
     f"--{verbose_arg_name}",
     "-v",
-    required=False,
     action="store_true",
     default=DEFAULT_VERBOSE,
     help=help_messages.HELP_MSG_VERBOSE,
@@ -108,7 +100,6 @@ parser.add_argument(
 parser.add_argument(
     f"--{workers_arg_name}",
     f"-{workers_arg_name[0]}",
-    required=False,
     type=int,
     metavar="count",
     default=DEFAULT_THREADS_COUNT,
