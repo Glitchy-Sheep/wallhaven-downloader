@@ -8,6 +8,25 @@ from dataclasses import dataclass, asdict
 
 
 @dataclass
+class CollectionInfo:
+    """
+    Object representing collection info.
+    """
+
+    id: int
+    label: str
+    views: int
+    count: int
+
+    def __str__(self):
+        collection_info_str = f"id: {self.id}\n"
+        collection_info_str += f"label: {self.label}\n"
+        collection_info_str += f"views: {self.views}\n"
+        collection_info_str += f"count: {self.count}"
+        return collection_info_str
+
+
+@dataclass
 class Resolution:
     """
     Object representing picture resolution as x and y (both must be positive).
