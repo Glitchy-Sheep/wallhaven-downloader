@@ -84,6 +84,11 @@ class WallHavenAPI(object):
                                 reason=exception_reasons.TooManyRequests
                             )
 
+                        case HTTPStatus.NOT_FOUND:
+                            raise aiohttp.web.HTTPNotFound(
+                                reason=exception_reasons.NotFoundError
+                            )
+
                         case _:  # general error
                             raise aiohttp.web.HTTPException(
                                 reason=exception_reasons.GeneralError.format(

@@ -1,3 +1,7 @@
+NotFoundError = """
+    The requested resource was not found.
+"""
+
 TooManyRequests = """
     Too many requests to the server, please try again later
 """
