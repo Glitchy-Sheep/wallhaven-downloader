@@ -20,6 +20,7 @@ from aiowallhaven.wallhaven_types import (
     TopRange,
     Resolution,
     Ratio,
+    CollectionInfo,
 )
 
 
@@ -287,7 +288,18 @@ class WallHavenAPI(object):
         if purity:
             query_url += "?purity=" + await self._purity(purity)
 
-        return await self._get_method(query_url, params={"page": page})
+        json_collections = await self._get_method(query_url, params={"page": page})
+        collections = []
+        for collection in json_collections["data"]:
+            collections.append(
+                CollectionInfo(
+                    id=collection["id"],
+                    label=collection["label"],
+                    count=collection["count"],
+                    views=collection["views"],
+                )
+            )
+        return collections
 
     async def get_user_uploads(self, username: str, purity: Purity = None, page=1):
         r"""
@@ -314,12 +326,10 @@ class WallHavenAPI(object):
     async def get_user_collection(
         self, username: str, collection_name: str, purity: Purity = None, page: int = 1
     ):
-        res = await self.get_collections(username, page=page)
+        collections = await self.get_collections(username, page=page)
 
-        for collection in res["data"]:
-            if collection["label"] == collection_name:
-                return await self.get_collections(
-                    username, collection["id"], purity=purity, page=page
-                )
+        for collection in collections:
+            if collection.label == collection_name:
+                return collection
 
         return []
