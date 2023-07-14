@@ -1,16 +1,17 @@
 import os
 
-from tqdm.asyncio import tqdm
+import aiohttp.web
 from aiolimiter import AsyncLimiter
+from tqdm.asyncio import tqdm
 
+from aiowallhaven.api import WallHavenAPI
+from aiowallhaven.wallhaven_types import Purity, Category
 from async_downloader.concurrent_downloader import (
     ConcurrentDownloader,
     ProgressbarSettings,
 )
-from aiowallhaven.wallhaven_types import Purity, Category
-from aiowallhaven.api import WallHavenAPI
 from wallpapers_downloader.logger import get_downloader_logger
-from wallpapers_downloader.types import CollectionTask, UploadTask
+from wallpapers_downloader.types import CollectionTask, UploadTask, UserCollections
 
 # Be aware that the limits for the w.wallhaven.cc domain may change over time.
 DOWNLOADER_AIOLIMITER = AsyncLimiter(1.062, 1)
@@ -128,3 +129,50 @@ class WallhavenDownloader:
                 await self._download_collections(task)
             elif isinstance(task, UploadTask):
                 await self._download_uploads(task)
+
+    async def retrieve_users_info(self, usernames_list: list) -> list[UserCollections]:
+        users_info: list[UserCollections] = []
+        retrieve_pbar = tqdm(
+            total=len(usernames_list),
+            leave=False,
+            desc="Retrieving users info...",
+            position=0,
+        )
+        for username in usernames_list:
+            try:
+                users_info.append(
+                    UserCollections(
+                        username=username,
+                        collections=await self._api.get_collections(username),
+                    )
+                )
+            except aiohttp.web.HTTPNotFound as e:
+                tqdm.write(f"User {username} not found")
+                continue
+            finally:
+                retrieve_pbar.update()
+
+        retrieve_pbar.close()
+        return users_info
+
+    async def print_users_info(self, usernames_list: list):
+        # Sort users_info by collections count,
+        # so first user with the most collections will be printed
+        users_info = await self.retrieve_users_info(usernames_list)
+        users_info = sorted(users_info, key=lambda x: len(x.collections), reverse=True)
+        table_width = 20
+
+        for user_info in users_info:
+            if not user_info.collections:
+                print("-" * table_width * 2)
+                print(f"{user_info.username} has no public collections.")
+                continue
+
+            header = (
+                ("-" * table_width) + f" {user_info.username} " + ("-" * table_width)
+            )
+            print("=" * len(header))
+            print(header)
+            print("=" * len(header))
+            for collection in user_info.collections or []:
+                print(collection, end="\n\n")
