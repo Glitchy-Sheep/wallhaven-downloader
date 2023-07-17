@@ -11,21 +11,60 @@ class PurityFilter:
     """
 
     def __init__(self, active_purities: set[Purity] = None):
+        """
+        Initializes a new instance of the PurityFilter class.
+
+        :param active_purities: A set of active purity levels.
+        :type active_purities: set[Purity], optional
+        """
         if active_purities:
             self.active_purities = active_purities
         else:
             self.active_purities = set()
 
     def set_purity(self, purity: Purity):
+        """
+        Sets a specific purity level as active in the filter.
+
+        :param purity: The purity level to set as active.
+        :type purity: Purity
+        """
         self.active_purities.add(purity)
 
     def remove_purity(self, purity: Purity):
+        """
+        Removes a specific purity level from the active purities.
+
+        :param purity: The purity level to remove.
+        :type purity: Purity
+        """
         self.active_purities.remove(purity)
 
     def is_purity_active(self, purity: Purity) -> bool:
+        """
+        Checks if a specific purity level is active in the filter.
+
+        :param purity: The purity level to check.
+        :type purity: Purity
+        :return: True if the purity level is active, False otherwise.
+        :rtype: bool
+        """
         return purity in self.active_purities
 
     def __repr__(self):
+        """
+        Returns a string representation of the active purities.
+
+        The representation and its order defined by the api.
+        Examples of representation:
+        'sfw, sketchy, nsfw' = '111'
+        'sfw, nsfw' = '101'
+        'nsfw' = '001'
+
+        :return: A string representation of the active purities.
+        :rtype: str
+        """
+        # The order of the purities representation is defined by the api.
         rep = str(int(self.is_purity_active(Purity.sfw)))
         rep += str(int(self.is_purity_active(Purity.sketchy)))
         rep += str(int(self.is_purity_active(Purity.nsfw)))
@@ -39,21 +78,56 @@ class CategoryFilter:
     """
 
     def __init__(self, active_categories: set[Category] = None):
+        """
+        Initializes the 'CategoryFilter' object for future use.
+
+        :param active_categories: Set of active categories. (default is an empty set).
+        :type active_categories: set[Category], optional
+        """
         if active_categories:
             self.active_categories = active_categories
         else:
             self.active_categories = set()
 
     def set_category(self, category: Category):
+        """
+        Sets a category as active.
+
+        :param category: The category to set as active.
+        :type category: Category
+        """
         self.active_categories.add(category)
 
     def remove_category(self, category: Category):
+        """
+        Removes a category from the active categories in the filter.
+
+        :param category: The category to remove.
+        """
         self.active_categories.remove(category)
 
     def is_category_active(self, category: Category) -> bool:
+        """
+        Checks if a category is active in the filter.
+
+        :param category: The category to check.
+        :return: True if the category is active, False otherwise.
+        """
         return category in self.active_categories
 
     def __repr__(self):
+        """
+        Returns a string representation of the active categories.
+
+        The representation and its order defined by the api.
+        Examples of representation:
+        'general, anime, people' = '111'
+        'general, people' = '101'
+        'people' = '001'
+
+
+        :return: A string representation of the active categories.
+        """
         rep = str(int(self.is_category_active(Category.general)))
         rep += str(int(self.is_category_active(Category.anime)))
         rep += str(int(self.is_category_active(Category.people)))
@@ -76,6 +150,13 @@ class Resolution:
 
     @staticmethod
     def from_str(value: str) -> "Resolution":
+        """
+        Create a Resolution object from a string representation.
+
+        :param value: String representation of the resolution (e.g. "1920x1080")
+        :return: Resolution object
+        :raise ValueError: Raised when the input value is not in the correct format
+        """
         if "x" not in value:
             raise ValueError(f"Invalid resolution format: {value}")
         x, y = map(int, value.split("x", maxsplit=1))
@@ -118,6 +199,18 @@ class Ratio(Resolution):
 
 @dataclass
 class WallpaperTag:
+    """
+    Represents a wallpaper tag.
+
+    :ivar id: The unique identifier of the tag.
+    :ivar name: The name of the tag.
+    :ivar alias: The alias of the tag.
+    :ivar category_id: The unique identifier of the category.
+    :ivar category: The name of the category.
+    :ivar purity: The purity of the tag.
+    :ivar created_at: The creation date of the tag.
+    """
+
     id: int
     name: str
     alias: str
@@ -129,6 +222,14 @@ class WallpaperTag:
 
 @dataclass
 class Uploader:
+    """
+    Represents an uploader.
+
+    :ivar username: The username of the uploader.
+    :ivar group: The group of the uploader.
+    :ivar avatar: Represents avatar miniatures of the uploader.
+    """
+
     username: str
     group: str
     avatar: Dict[str, str]
@@ -138,6 +239,28 @@ class Uploader:
 class WallpaperInfo:
     """
     Object representing wallpaper info.
+
+    :ivar id: The unique identifier of the wallpaper.
+    :ivar url: The URL of the wallpaper.
+    :ivar short_url: The short URL of the wallpaper.
+    :ivar views: The number of views of the wallpaper.
+    :ivar favorites: The number of favorites of the wallpaper.
+    :ivar source: The source of the wallpaper.
+    :ivar purity: The purity of the wallpaper.
+    :ivar category: The category of the wallpaper.
+    :ivar dimension_x: The width of the wallpaper.
+    :ivar dimension_y: The height of the wallpaper.
+    :ivar resolution: The resolution of the wallpaper.
+    :ivar ratio: The ratio of the wallpaper.
+    :ivar file_size: The file size of the wallpaper.
+    :ivar file_type: The file type of the wallpaper.
+    :ivar created_at: The creation date of the wallpaper.
+    :ivar colors: The colors of the wallpaper.
+    :ivar path: The path of the wallpaper.
+    :ivar thumbs: The thumbs of the wallpaper.
+
+    :ivar uploader: (Optional) The uploader of the wallpaper.
+    :ivar tags: (Optional) The tags of the wallpaper.
     """
 
     id: str
@@ -165,6 +288,15 @@ class WallpaperInfo:
 
     @classmethod
     def from_json(cls, json_data: Dict) -> "WallpaperInfo":
+        """
+        Create a WallpaperInfo object from a json data.
+
+        :param json_data: The json data from the api about the wallpaper
+        :type json_data: Dict
+
+        :return: WallpaperInfo
+        """
+
         # Unpack complex data structures in a special way
         if "uploader" in json_data.keys():
             json_data["uploader"] = Uploader(**json_data["uploader"])
@@ -181,6 +313,11 @@ class WallpaperInfo:
 class UserCollectionInfo:
     """
     Object representing collection info.
+
+    :ivar id: The unique identifier of the collection.
+    :ivar label: The label of the collection.
+    :ivar views: The number of views of the collection.
+    :ivar count: The number of wallpapers in the collection.
     """
 
     id: int
@@ -198,6 +335,19 @@ class UserCollectionInfo:
 
 @dataclass
 class SearchMetaInfo:
+    """
+    Object representing search meta info.
+    Meta info contains information about search results and pagination.
+
+    :ivar query: The search query.
+    :ivar seed: The seed which was used for search.
+
+    :ivar current_page: The current page number.
+    :ivar last_page: The last page number.
+    :ivar per_page: The number of wallpapers per page.
+    :ivar total: The total number of wallpapers.
+    """
+
     query: str
     seed: str
 
@@ -211,6 +361,9 @@ class SearchMetaInfo:
 class WallpaperCollection:
     """
     Object representing collection wallpapers info.
+
+    :ivar meta: The meta info about wallpaper collection (pages, total, etc.)
+    :ivar wallpapers: The list of wallpapers in the collection and their info
     """
 
     meta: SearchMetaInfo
@@ -230,6 +383,12 @@ class WallpaperCollection:
 
     @staticmethod
     def from_json(json_data) -> "WallpaperCollection":
+        """
+        Create a WallpaperCollection object from a json data.
+
+        :param json_data: The json data from the api about the wallpaper
+        :return: WallpaperCollection
+        """
         return WallpaperCollection(
             meta=WallpaperCollection._get_meta_from_json(json_data),
             wallpapers=WallpaperCollection._get_wallpapers_from_json(json_data),
