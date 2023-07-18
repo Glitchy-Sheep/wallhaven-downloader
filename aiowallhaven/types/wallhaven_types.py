@@ -216,8 +216,13 @@ class WallpaperTag:
     alias: str
     category_id: int
     category: str
-    purity: str
+    purity: Purity
     created_at: str
+
+    @staticmethod
+    def from_json(json_data):
+        json_data["purity"] = Purity.from_str(json_data["purity"])
+        return WallpaperTag(**json_data)
 
 
 @dataclass
@@ -251,7 +256,7 @@ class WallpaperInfo:
     :ivar dimension_x: The width of the wallpaper.
     :ivar dimension_y: The height of the wallpaper.
     :ivar resolution: The resolution of the wallpaper.
-    :ivar ratio: The ratio of the wallpaper.
+    :ivar ratio: The ratio of the wallpaper as fraction.
     :ivar file_size: The file size of the wallpaper.
     :ivar file_type: The file type of the wallpaper.
     :ivar created_at: The creation date of the wallpaper.
@@ -275,7 +280,7 @@ class WallpaperInfo:
     dimension_x: int
     dimension_y: int
     resolution: Resolution
-    ratio: Ratio
+    ratio: float
     file_size: int
     file_type: str
     created_at: str
@@ -296,16 +301,19 @@ class WallpaperInfo:
 
         :return: WallpaperInfo
         """
-
         # Unpack complex data structures in a special way
         if "uploader" in json_data.keys():
             json_data["uploader"] = Uploader(**json_data["uploader"])
         if "tags" in json_data.keys():
-            json_data["tags"] = [WallpaperTag(**tag) for tag in json_data["tags"]]
+            json_data["tags"] = [
+                WallpaperTag.from_json(tag_json_data)
+                for tag_json_data in json_data["tags"]
+            ]
 
         json_data["purity"] = Purity.from_str(json_data["purity"])
         json_data["category"] = Category.from_str(json_data["category"])
         json_data["resolution"] = Resolution.from_str(json_data["resolution"])
+        json_data["ratio"] = float(json_data["ratio"])
         return cls(**json_data)
 
 

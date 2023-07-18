@@ -2,9 +2,9 @@ from enum import Enum
 
 
 class Purity(Enum):
-    nsfw = 0
-    sketchy = 1
-    sfw = 2
+    sfw = "sfw"
+    sketchy = "sketchy"
+    nsfw = "nsfw"
 
     @staticmethod
     def from_str(value: str) -> "Purity":
@@ -12,9 +12,9 @@ class Purity(Enum):
 
 
 class Category(Enum):
-    general = 0
-    anime = 1
-    people = 2
+    general = "general"
+    anime = "anime"
+    people = "people"
 
     @staticmethod
     def from_str(value: str) -> "Category":
