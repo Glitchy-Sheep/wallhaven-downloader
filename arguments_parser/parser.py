@@ -2,7 +2,8 @@ import os
 import argparse
 
 import arguments_parser.help_messages as help_messages
-from aiowallhaven.wallhaven_types import Purity, Category
+from aiowallhaven.types.wallhaven_enums import Purity, Category
+from aiowallhaven.types.wallhaven_types import PurityFilter, CategoryFilter
 from wallpapers_downloader.downloader import CollectionTask, UploadTask
 
 DEFAULT_DOWNLOADS_PATH = os.curdir + os.sep + "downloads"
@@ -154,31 +155,31 @@ def get_all_tasks() -> list[CollectionTask | UploadTask]:
 
 def get_purity_filter():
     if args[purity_arg_name] is None:
-        return Purity(True, True, True)
+        return PurityFilter({Purity.sfw, Purity.sketchy, Purity.nsfw})
 
-    purity_filter = Purity(False, False, False)
+    purity_filter = PurityFilter()
 
     if "sfw" in args[purity_arg_name]:
-        purity_filter.sfw = True
+        purity_filter.set_purity(Purity.sfw)
     if "sketchy" in args[purity_arg_name]:
-        purity_filter.sketchy = True
+        purity_filter.set_purity(Purity.sketchy)
     if "nsfw" in args[purity_arg_name]:
-        purity_filter.nsfw = True
+        purity_filter.set_purity(Purity.nsfw)
     return purity_filter
 
 
 def get_category_filter():
     if args[category_arg_name] is None:
-        return Category(True, True, True)
+        return CategoryFilter({Category.general, Category.anime, Category.people})
 
-    category_filter = Category(False, False, False)
+    category_filter = CategoryFilter()
 
     if "general" in args[category_arg_name]:
-        category_filter.general = True
+        category_filter.set_category(Category.general)
     if "anime" in args[category_arg_name]:
-        category_filter.anime = True
+        category_filter.set_category(Category.anime)
     if "people" in args[category_arg_name]:
-        category_filter.people = True
+        category_filter.set_category(Category.people)
     return category_filter
 
 
