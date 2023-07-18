@@ -4,7 +4,7 @@ import warnings  # disable some socket warnings
 from datetime import datetime as dt  # for "sorting" test
 
 from aiowallhaven.api import WallHavenAPI
-from aiowallhaven.wallhaven_types import (
+from aiowallhaven.types.wallhaven_types import (
     Ratio,
     Resolution,
     Sorting,
@@ -12,7 +12,7 @@ from aiowallhaven.wallhaven_types import (
     Order,
     Color,
     Purity,
-    Category,
+    CategoryFilter,
 )
 
 API_KEY = os.getenv("WALLHAVEN_API_KEY")
@@ -44,9 +44,9 @@ class ApiTestSearch(unittest.IsolatedAsyncioTestCase):
 
     async def test_categories(self):
         all_categories = [
-            Category(general=True),
-            Category(anime=True),
-            Category(people=True),
+            CategoryFilter(general=True),
+            CategoryFilter(anime=True),
+            CategoryFilter(people=True),
         ]
 
         for category in all_categories:
