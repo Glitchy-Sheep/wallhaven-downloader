@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from aiowallhaven.wallhaven_types import CollectionInfo
+from aiowallhaven.types.wallhaven_types import UserCollectionInfo
 
 
 @dataclass
@@ -9,7 +9,7 @@ class UserCollections:
     """
 
     username: str
-    collections: list[CollectionInfo]
+    collections: list[UserCollectionInfo]
 
 
 @dataclass
