@@ -1,7 +1,16 @@
+import aiowallhaven.types.api_exception_reasons as exception_reasons
+
 from dataclasses import dataclass
 from typing import List, Dict, Optional
 
-from aiowallhaven.types.wallhaven_enums import Purity, Category
+from aiowallhaven.types.wallhaven_enums import (
+    Purity,
+    Category,
+    TopRange,
+    Sorting,
+    Order,
+    Color,
+)
 
 
 @dataclass
@@ -10,7 +19,7 @@ class PurityFilter:
     Object representing a purity filter for wallpapers (sfw, sketchy, nsfw).
     """
 
-    def __init__(self, active_purities: set[Purity] = None):
+    def __init__(self, *active_purities: Purity):
         """
         Initializes a new instance of the PurityFilter class.
 
@@ -18,7 +27,7 @@ class PurityFilter:
         :type active_purities: set[Purity], optional
         """
         if active_purities:
-            self.active_purities = active_purities
+            self.active_purities = set(active_purities)
         else:
             self.active_purities = set()
 
@@ -77,7 +86,7 @@ class CategoryFilter:
     Object representing category filter (general, anime, people)
     """
 
-    def __init__(self, active_categories: set[Category] = None):
+    def __init__(self, *active_categories: Category):
         """
         Initializes the 'CategoryFilter' object for future use.
 
@@ -85,7 +94,7 @@ class CategoryFilter:
         :type active_categories: set[Category], optional
         """
         if active_categories:
-            self.active_categories = active_categories
+            self.active_categories = set(active_categories)
         else:
             self.active_categories = set()
 
@@ -291,8 +300,8 @@ class WallpaperInfo:
     uploader: Optional[Uploader] = None
     tags: Optional[List[WallpaperTag]] = None
 
-    @classmethod
-    def from_json(cls, json_data: Dict) -> "WallpaperInfo":
+    @staticmethod
+    def from_json(json_data: Dict) -> "WallpaperInfo":
         """
         Create a WallpaperInfo object from a json data.
 
@@ -314,7 +323,7 @@ class WallpaperInfo:
         json_data["category"] = Category.from_str(json_data["category"])
         json_data["resolution"] = Resolution.from_str(json_data["resolution"])
         json_data["ratio"] = float(json_data["ratio"])
-        return cls(**json_data)
+        return WallpaperInfo(**json_data)
 
 
 @dataclass
@@ -356,13 +365,13 @@ class SearchMetaInfo:
     :ivar total: The total number of wallpapers.
     """
 
-    query: str
-    seed: str
-
     current_page: int
     last_page: int
     per_page: int
     total: int
+
+    query: Optional[str] = None
+    seed: Optional[str] = None
 
 
 @dataclass
@@ -401,3 +410,136 @@ class WallpaperCollection:
             meta=WallpaperCollection._get_meta_from_json(json_data),
             wallpapers=WallpaperCollection._get_wallpapers_from_json(json_data),
         )
+
+
+@dataclass
+class UserSettings:
+    """
+    Object representing user settings.
+    """
+
+    thumb_size: str
+    per_page: int
+    purity: PurityFilter
+    categories: CategoryFilter
+    resolutions: list[Resolution]
+    aspect_ratios: list[Ratio]
+    toplist_range: TopRange
+    tag_blacklist: list[str]
+    user_blacklist: list[str]
+    ai_art_filter: bool
+
+    @staticmethod
+    def from_json(json_data: Dict) -> "UserSettings":
+        json_data["per_page"] = int(json_data["per_page"])
+
+        purity_filter = PurityFilter()
+        for purity_str in json_data["purity"]:
+            purity_filter.set_purity(Purity.from_str(purity_str))
+
+        category_filter = CategoryFilter()
+        for category_str in json_data["categories"]:
+            category_filter.set_category(Category.from_str(category_str))
+
+        resolutions = []
+        for resolution in list(filter(str.isspace, json_data["resolutions"])):
+            resolutions.append(Resolution.from_str(resolution))
+
+        ratios = []
+        for ratio in list(filter(str.isspace, json_data["aspect_ratios"])):
+            ratios.append(Ratio.from_str(ratio))
+
+        json_data["categories"] = category_filter
+        json_data["resolutions"] = resolutions
+        json_data["aspect_ratios"] = ratios
+        json_data["toplist_range"] = TopRange(json_data["toplist_range"])
+        json_data["ai_art_filter"] = bool(json_data["ai_art_filter"])
+
+        # Get rid of empty strings in results (just for cleanup)
+        json_data["tag_blacklist"] = list(
+            filter(str.isspace, json_data["tag_blacklist"])
+        )
+        json_data["user_blacklist"] = list(
+            filter(str.isspace, json_data["user_blacklist"])
+        )
+
+        return UserSettings(**json_data)
+
+
+@dataclass
+class SearchFilter:
+    """
+    Object representing query params.
+    """
+
+    category: CategoryFilter = None
+    purity: PurityFilter = None
+    sorting: Sorting = None
+    order: Order = None
+    toprange: TopRange = None
+    atleast: Resolution = None
+    resolutions: list[Resolution] = None
+    ratios: list[Ratio] = None
+    color: Color = None
+    page: int = None
+    seed: str = None
+
+    def to_query_params_dict(self):
+        query_params = {}
+
+        if self.category:
+            query_params["categories"] = str(self.category)
+
+        if self.purity:
+            query_params["purity"] = str(self.purity)
+
+        if self.sorting:
+            if not isinstance(self.sorting, Sorting):
+                raise ValueError(exception_reasons.ValueErrorSorting)
+            query_params["sorting"] = self.sorting.value
+
+        if self.order:
+            if not isinstance(self.order, Order):
+                raise ValueError(exception_reasons.ValueErrorOrder)
+            query_params["order"] = self.order.value
+
+        if self.toprange:
+            if not isinstance(self.toprange, TopRange):
+                raise ValueError(exception_reasons.ValueErrorToprange)
+            query_params["toprange"] = self.toprange.value
+
+        if self.atleast:
+            if not isinstance(self.atleast, Resolution):
+                raise ValueError(exception_reasons.ValueErrorAtleast)
+            query_params["atleast"] = str(self.atleast)
+
+        if self.resolutions:
+            if not isinstance(self.resolutions, list):
+                raise ValueError(exception_reasons.ValueErrorResolutionsFormat)
+
+            for res in self.resolutions:
+                if not isinstance(res, Resolution):
+                    raise ValueError(exception_reasons.ValueErrorResolutions)
+
+            query_params["resolutions"] = "%2C".join(str(x) for x in self.resolutions)
+
+        if self.ratios:
+            if not isinstance(self.ratios, list):
+                raise ValueError(exception_reasons.ValueErrorRatiosFormat)
+
+            for rat in self.ratios:
+                if not isinstance(rat, Ratio):
+                    raise ValueError(exception_reasons.ValueErrorRatios)
+
+            query_params["ratios"] = "%2C".join(str(x) for x in self.ratios)
+
+        if self.color:
+            query_params["colors"] = self.color.value
+
+        if self.page:
+            query_params["page"] = str(self.page)
+
+        if self.seed:
+            query_params["seed"] = self.seed
+
+        return query_params
