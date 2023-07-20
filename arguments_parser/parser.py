@@ -155,7 +155,7 @@ def get_all_tasks() -> list[CollectionTask | UploadTask]:
 
 def get_purity_filter():
     if args[purity_arg_name] is None:
-        return PurityFilter({Purity.sfw, Purity.sketchy, Purity.nsfw})
+        return PurityFilter(Purity.sfw, Purity.sketchy, Purity.nsfw)
 
     purity_filter = PurityFilter()
 
@@ -170,7 +170,7 @@ def get_purity_filter():
 
 def get_category_filter():
     if args[category_arg_name] is None:
-        return CategoryFilter({Category.general, Category.anime, Category.people})
+        return CategoryFilter(Category.general, Category.anime, Category.people)
 
     category_filter = CategoryFilter()
 
