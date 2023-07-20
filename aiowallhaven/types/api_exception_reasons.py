@@ -52,7 +52,7 @@ ValueErrorResolutions = """
 """
 
 ValueErrorResolutionsFormat = """
-    The argument neither a Python list nor string. 
+    The argument should be a list of resolutions.
     Valid format: [Resolution(1920, 1080), Resolution(2560x1600)]. 
 """
 
@@ -64,4 +64,9 @@ ValueErrorRatios = """
 ValueErrorRatiosFormat = """
     The argument neither a Python list nor string. 
     Valid format: [Ratio(16, 9), Ratio(16, 10)]. 
+"""
+
+ValueErrorId = """
+    The provided id is incorrect.
+    Id should be an integer. Example: 999777 
 """

@@ -1,28 +1,25 @@
 from __future__ import annotations
 
 import logging
-
 from http import HTTPStatus
-from typing import Dict
+from typing import Dict, Union
 
 import aiohttp
 import aiohttp.web
-from aiolimiter import AsyncLimiter
 from aiohttp_retry import RetryClient
+from aiolimiter import AsyncLimiter
 
-from aiowallhaven import api_exception_reasons as exception_reasons
-from aiowallhaven.wallhaven_types import (
+from aiowallhaven.types import api_exception_reasons as exception_reasons
+from aiowallhaven.types.wallhaven_types import (
     Purity,
-    Category,
-    Color,
-    Order,
-    Sorting,
-    TopRange,
-    Resolution,
-    Ratio,
-    CollectionInfo,
+    UserCollectionInfo,
+    WallpaperInfo,
+    PurityFilter,
+    WallpaperCollection,
+    WallpaperTag,
+    UserSettings,
+    SearchFilter,
 )
-
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -49,14 +46,6 @@ class WallHavenAPI(object):
         self.api_key: str = api_key
 
     async def _get_method(self, url: str, params: Dict = None) -> Dict:
-        r"""
-        Make an async GET request to https://wallhaven.cc
-
-        :param url: URL for the new :class:`aiohttp.ClientSession` object.
-        :param params: Additional parameters for get method
-        :return: :class: `JSON` object
-        """
-
         if params is None:
             params = {}
 
@@ -97,202 +86,63 @@ class WallHavenAPI(object):
                                 )
                             )
 
-    @staticmethod
-    async def _purity(pur: Purity) -> str:
-        return "{}{}{}".format(int(pur.sfw), int(pur.sketchy), int(pur.nsfw))
-
-    @staticmethod
-    async def _category(cat: Category):
-        return "{}{}{}".format(int(cat.general), int(cat.anime), int(cat.people))
-
-    async def get_wallpaper(self, wallpaper_id: str):
-        r"""
-        Get the details about wallpaper with given id.
-
-        :param wallpaper_id:
-            A string representing a unique id assigned to the wallpaper.
-
-        :return:
-            :class: `JSON` object
-        """
-
+    async def get_wallpaper(self, wallpaper_id: str) -> WallpaperInfo:
         url = f"w/{wallpaper_id}"
-        return await self._get_method(url)
+        json_data = await self._get_method(url)
+        wallpaper_info = WallpaperInfo.from_json(json_data["data"])
+        return wallpaper_info
 
     async def search(
-        self,
-        q: str = None,
-        category: Category = None,
-        purity: Purity = None,
-        sorting: Sorting = None,
-        order: Order = None,
-        toprange: TopRange = None,
-        atleast: Resolution = None,
-        resolutions: list[Resolution] = None,
-        ratios: list[Ratio] = None,
-        color: Color = None,
-        page: int = None,
-        seed: str = None,
+        self, query: str = None, search_filter: SearchFilter = SearchFilter()
     ):
-        r"""
-        Perform search through Wallhaven.
-        If no additional parameters are set
-        the latest SFW wallpapers will be returned.
+        query_params: dict = search_filter.to_query_params_dict()
+        if query:
+            query_params["q"] = query
 
-        :param q:
-            Search query. Your main way of finding what you're looking for.
-        :param category:
-            Only wallpapers with specified categories will be returned.
-        :param purity:
-            Only wallpapers with specified purities will be returned.
-        :param sorting:
-            *(optional)* Method of sorting results.
-        :param order:
-            *(optional)* Sorting order. Default order is desc.
-        :param toprange:
-            *(optional)* Specify toplist sorting options.
-            Sorting MUST be set to 'toplist'.
-        :param atleast:
-            *(optional)* Minimum resolution allowed. (e.g. "1920x1080")
-        :param resolutions:
-            *(optional)* List of exact wallpaper resolutions.
-        :param ratios:
-            *(optional)* List of exact ratios.
-        :param color:
-            *(optional)* Search by color.
-        :param page:
-            *(optional)* Pagination. Not actually infinite.
-        :param seed:
-            *(optional)* seed for random results. Example: ``[a-zA-Z0-9]{6}``.
-
-        :return: :class: `JSON` object
-        """
-
-        query_params: dict = {}
-
-        if q:
-            query_params["q"] = q
-
-        if category:
-            query_params["categories"] = await self._category(category)
-
-        if purity:
-            query_params["purity"] = await self._purity(purity)
-
-        if sorting:
-            if not isinstance(sorting, Sorting):
-                raise ValueError(exception_reasons.ValueErrorSorting)
-            query_params["sorting"] = sorting.value
-
-        if order:
-            if not isinstance(order, Order):
-                raise ValueError(exception_reasons.ValueErrorOrder)
-            query_params["order"] = order.value
-
-        if toprange:
-            if not isinstance(toprange, TopRange):
-                raise ValueError(exception_reasons.ValueErrorToprange)
-            query_params["toprange"] = toprange.value
-
-        if atleast:
-            if not isinstance(atleast, Resolution):
-                raise ValueError(exception_reasons.ValueErrorAtleast)
-            query_params["atleast"] = str(atleast)
-
-        if resolutions:
-            if not isinstance(resolutions, list):
-                raise ValueError(exception_reasons.ValueErrorResolutionsFormat)
-
-            for res in resolutions:
-                if not isinstance(res, Resolution):
-                    raise ValueError(exception_reasons.ValueErrorResolutions)
-
-            query_params["resolutions"] = "%2C".join(str(x) for x in resolutions)
-
-        if ratios:
-            if not isinstance(ratios, list):
-                raise ValueError(exception_reasons.ValueErrorRatiosFormat)
-
-            for rat in ratios:
-                if not isinstance(rat, Ratio):
-                    raise ValueError(exception_reasons.ValueErrorRatios)
-
-            query_params["ratios"] = "%2C".join(str(x) for x in ratios)
-
-        if color:
-            query_params["colors"] = color.value
-
-        if page:
-            query_params["page"] = str(page)
-
-        if seed:
-            query_params["seed"] = seed
-
-        return await self._get_method(
+        json_search_results = await self._get_method(
             "search"
             if not query_params
             else f"search?{'&'.join('{}={}'.format(*i) for i in query_params.items())}"
         )
 
+        search_results = WallpaperCollection.from_json(json_search_results)
+        return search_results
+
     async def get_tag(self, tag: int):
-        r"""
-        Return the information about a specific tag.
-
-        :param tag: an integer associated with a tag.
-
-        :return: :class: `JSON` object
-        """
-        return await self._get_method(f"tag/{tag}")
+        tag_info_json = await self._get_method(f"tag/{tag}")
+        tag_info = WallpaperTag.from_json(tag_info_json["data"])
+        return tag_info
 
     async def my_settings(self):
-        r"""
-        Return the user's settings. *API key is required for this method.*
+        my_settings_json = await self._get_method("settings")
+        my_settings = UserSettings.from_json(my_settings_json["data"])
+        return my_settings
 
-        :return: :class: `JSON` object
-        """
-        return await self._get_method("settings")
+    async def get_user_uploads(
+        self,
+        username: str,
+        search_filter: SearchFilter = SearchFilter(
+            page=1, purity=PurityFilter(Purity.sfw, Purity.sketchy)
+        ),
+    ):
+        return await self.search(query=f"@{username}", search_filter=search_filter)
 
-    async def get_collections(
+    async def get_user_collections_list(
         self,
         username: str = None,
-        collection_id: int = None,
-        purity: Purity = None,
-        page: int = 1,
+        search_filter: SearchFilter = SearchFilter(),
     ):
-        r"""
-        Allows a user to see their own or public collection.
-
-        :param username:
-            *(optional)* Specifies a username of user, whose collections you
-            are looking for.
-        :param collection_id:
-            *(optional)* Argument to parse through user collection having
-            the indicated ID.
-        :param purity:
-            *(optional)* Argument to choose purity of returned results
-            (e.g. ["sfw", "sketchy", "nsfw"]).
-        :param page:
-            Page of the collection you are looking for.
-
-        :return: :class: `JSON` object
-        """
-
         query_url = "collections"
+        query_params = search_filter.to_query_params_dict()
 
         if username:
             query_url += "/" + username
 
-        if collection_id:
-            query_url += "/" + str(collection_id)
-
-        if purity:
-            query_url += "?purity=" + await self._purity(purity)
-
-        json_collections = await self._get_method(query_url, params={"page": page})
+        json_collections = await self._get_method(query_url, params=query_params)
         collections = []
         for collection in json_collections["data"]:
             collections.append(
-                CollectionInfo(
+                UserCollectionInfo(
                     id=collection["id"],
                     label=collection["label"],
                     count=collection["count"],
@@ -301,35 +151,41 @@ class WallHavenAPI(object):
             )
         return collections
 
-    async def get_user_uploads(self, username: str, purity: Purity = None, page=1):
-        r"""
-        Allows a user to get somebody's uploads.
-        This function is an alias for search.
-
-        :param username:
-            Specifies a user which uploads you are looking for.
-        :param purity:
-            *(optional)* List with elements representing purity.
-            Only wallpapers with purities in the list will be returned.
-            (e.g. ``['sfw', 'sketchy']`` - only sfw or sketchy)
-        :param page:
-            *(optional)* Page of the user's uploads. First page by default.
-
-        :return: :class: `JSON` object
-        """
-
-        if purity is None:
-            purity = Purity(sfw=True, sketchy=True, nsfw=False)
-        res = await self.search(q=f"@{username}", page=page, purity=purity)
-        return res
-
     async def get_user_collection(
-        self, username: str, collection_name: str, purity: Purity = None, page: int = 1
+        self,
+        username: str,
+        collection_identifier: Union[str, int],
+        is_by_id: bool = False,
+        search_filter=SearchFilter(page=1),
     ):
-        collections = await self.get_collections(username, page=page)
+        query_url = ""
+        query_params = search_filter.to_query_params_dict()
 
-        for collection in collections:
-            if collection.label == collection_name:
-                return collection
+        if is_by_id:
+            if not isinstance(collection_identifier, int):
+                raise ValueError(exception_reasons.ValueErrorId)
+            collection_id = collection_identifier
+            query_url = "collections"
+            query_url += "/" + username
+            query_url += "/" + str(collection_id)
+        else:
+            collection_name = collection_identifier
+            all_collections = await self.get_user_collections_list(username)
+            for collection in all_collections:
+                if collection.label == collection_name:
+                    query_url = "collections"
+                    query_url += "/" + username
+                    query_url += "/" + str(collection.id)
+                    break
 
-        return []
+        # In case of "by name" search
+        if not query_url:
+            raise aiohttp.web.HTTPNotFound(reason=exception_reasons.NotFoundError)
+
+        wallpaper_collection_json = await self._get_method(
+            query_url, params=query_params
+        )
+
+        wallpaper_collection = WallpaperCollection.from_json(wallpaper_collection_json)
+
+        return wallpaper_collection
