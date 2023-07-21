@@ -83,6 +83,9 @@ class ApiTestSearch(unittest.IsolatedAsyncioTestCase):
             self.assertLessEqual(current_wallpaper_date, previous_date)
             previous_date = current_wallpaper_date
 
+    # This test can fail occasionally due to wallhaven API rare errors
+    # Sometimes the API returns one or two wallpapers whose
+    # values deviate slightly from the sorting order.
     async def test_sorting_views(self):
         target_sorting = Sorting.views
         target_order = Order.desc
@@ -101,6 +104,9 @@ class ApiTestSearch(unittest.IsolatedAsyncioTestCase):
         result = await api.search(search_filter=search_filter)
         self.assertIsNotNone(result.meta.seed)  # random set seed
 
+    # This test can fail occasionally due to wallhaven API rare errors
+    # Sometimes the API returns one or two wallpapers whose
+    # values deviate slightly from the sorting order.
     async def test_sorting_favorites(self):
         target_sorting = Sorting.favorites
         target_order = Order.desc
