@@ -5,7 +5,7 @@ from aiolimiter import AsyncLimiter
 from tqdm.asyncio import tqdm
 
 from aiowallhaven.api import WallHavenAPI
-from aiowallhaven.wallhaven_types import Purity, Category
+from aiowallhaven.types.wallhaven_types import SearchFilter
 from async_downloader.concurrent_downloader import (
     ConcurrentDownloader,
     ProgressbarSettings,
@@ -37,20 +37,18 @@ class WallhavenDownloader:
         api_key: str,
         downloads_directory: str,
         tasks: list[CollectionTask | UploadTask],
-        workers: int,
-        purity_filter: Purity,
-        category_filter: Category,
+        workers_count: int,
+        downloads_filters: SearchFilter = SearchFilter(),
     ):
         self._LOG = get_downloader_logger()
         self._api = WallHavenAPI(api_key=api_key)
         self._downloads_directory = downloads_directory
         self._tasks = tasks
-        self._workers = workers
-        self._purity_filter = purity_filter
-        self._category_filter = category_filter
+        self._workers = workers_count
+        self.search_filter = downloads_filters
 
         self.concurrent_downloader = ConcurrentDownloader(
-            concurrent_tasks_limit=workers,
+            concurrent_tasks_limit=workers_count,
             aio_limiter=DOWNLOADER_AIOLIMITER,
             progressbars_options=ProgressbarSettings(True, True, 0),
         )
@@ -60,26 +58,29 @@ class WallhavenDownloader:
     ):
         local_wallpapers_ids = self._get_local_wallpapers_ids(save_path)
         collection_info = await self._api.get_user_collection(
-            username, collection_name, page=1
+            username, collection_name, search_filter=self.search_filter
         )
 
-        total_pages = collection_info["meta"]["last_page"]
+        total_pages = collection_info.meta.last_page
         pages_fetch_pbar = tqdm(
             total=total_pages,
             leave=False,
             desc=f"Fetching collection info: {collection_name}",
         )
+
+        print(local_wallpapers_ids)
         for page in range(1, total_pages + 1):
             collection_info = await self._api.get_user_collection(
-                username, collection_name, page=page
+                username, collection_name, page=page, search_filter=self.search_filter
             )
-            for wallpaper in collection_info["data"]:
+            for wallpaper in collection_info.wallpapers:
                 # skip wallpaper if we already downloaded it before
-                if wallpaper["id"] in local_wallpapers_ids:
+                if wallpaper.id in local_wallpapers_ids:
+                    print(f"Skipping wallpaper: {wallpaper.id}")
                     continue
 
                 self.concurrent_downloader.schedule_download(
-                    save_dir=save_path, filename=None, url=wallpaper["path"]
+                    save_dir=save_path, filename=None, url=wallpaper.path
                 )
             pages_fetch_pbar.update()
 
@@ -89,11 +90,9 @@ class WallhavenDownloader:
     async def _download_collections(self, task: CollectionTask):
         username = task.username
         if len(task.collections) == 0:
-            collections = await self._api.get_collections(
-                username, purity=self._purity_filter
-            )
-            for collection in collections["data"]:
-                task.collections.append(collection["label"])
+            collections = await self._api.get_user_collections_list(username)
+            for collection in collections:
+                task.collections.append(collection.label)
 
         for collection_name in task.collections:
             save_dir = os.path.join(task.save_directory, collection_name)
@@ -101,21 +100,23 @@ class WallhavenDownloader:
 
     async def _download_uploads(self, task: UploadTask):
         username = task.username
-        uploads = await self._api.get_user_uploads(username, self._purity_filter)
-        total_pages = uploads["meta"]["last_page"]
+        uploads = await self._api.get_user_uploads(
+            username, search_filter=self.search_filter
+        )
+        total_pages = uploads.meta.last_page
         local_wallpapers_ids = self._get_local_wallpapers_ids(task.save_directory)
 
         page_scan_pbar = tqdm(total=total_pages, leave=False)
         page_scan_pbar.desc = "Getting collection info, please wait..."
         for page in range(1, total_pages + 1):
             uploads = await self._api.get_user_uploads(
-                username, self._purity_filter, page=page
+                username, page=page, search_filter=self.search_filter
             )
-            for wallpaper in uploads["data"]:
-                if wallpaper["id"] in local_wallpapers_ids:
+            for wallpaper in uploads.wallpapers:
+                if wallpaper.id in local_wallpapers_ids:
                     continue
                 self.concurrent_downloader.schedule_download(
-                    save_dir=task.save_directory, filename=None, url=wallpaper["path"]
+                    save_dir=task.save_directory, url=wallpaper.path
                 )
             page_scan_pbar.update()
 
@@ -143,10 +144,10 @@ class WallhavenDownloader:
                 users_info.append(
                     UserCollections(
                         username=username,
-                        collections=await self._api.get_collections(username),
+                        collections=await self._api.get_user_collections_list(username),
                     )
                 )
-            except aiohttp.web.HTTPNotFound as e:
+            except aiohttp.web.HTTPNotFound:
                 tqdm.write(f"User {username} not found")
                 continue
             finally:
@@ -175,4 +176,4 @@ class WallhavenDownloader:
             print(header)
             print("=" * len(header))
             for collection in user_info.collections or []:
-                print(collection, end="\n\n")
+                print(collection)
