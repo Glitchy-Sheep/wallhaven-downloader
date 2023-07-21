@@ -482,6 +482,7 @@ class SearchFilter:
     ratios: list[Ratio] = None
     color: Color = None
     seed: str = None
+    ai_art_filter: bool = False  # show by default
 
     def to_query_params_dict(self):
         query_params = {}
@@ -537,5 +538,7 @@ class SearchFilter:
 
         if self.seed:
             query_params["seed"] = self.seed
+
+        query_params["ai_art_filter"] = str(int(self.ai_art_filter))
 
         return query_params
