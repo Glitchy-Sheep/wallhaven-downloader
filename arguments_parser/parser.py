@@ -1,5 +1,6 @@
 import os
 import argparse
+import rich_argparse
 
 import arguments_parser.help_messages as help_messages
 from aiowallhaven.types.wallhaven_enums import Purity, Category
@@ -14,9 +15,12 @@ DEFAULT_THREADS_COUNT = 1
 DEFAULT_VERBOSE = False
 
 parser = argparse.ArgumentParser(
-    formatter_class=argparse.RawTextHelpFormatter,
+    usage="%(prog)s [options] --help for more info",
+    formatter_class=rich_argparse.RawTextRichHelpFormatter,
     description=help_messages.PROGRAM_DESCRIPTION,
 )
+
+required_group = parser.add_mutually_exclusive_group(required=True)
 
 # ------------- Arguments name for convenience
 info_arg_name = "info"
@@ -30,16 +34,16 @@ verbose_arg_name = "verbose"
 workers_arg_name = "workers"
 api_key_arg_name = "api_key"
 
-parser.add_argument(
+required_group.add_argument(
     f"--{info_arg_name}",
     f"-{info_arg_name[0]}",
     type=str,
     nargs="+",
-    metavar="",
+    metavar="username",
     help=help_messages.HELP_MSG_INFO,
 )
 
-parser.add_argument(
+required_group.add_argument(
     f"--{collections_arg_name}",
     f"-{collections_arg_name[0]}",
     type=str,
@@ -49,7 +53,7 @@ parser.add_argument(
     help=help_messages.HELP_MSG_COLLECTIONS,
 )
 
-parser.add_argument(
+required_group.add_argument(
     f"--{uploads_arg_name}",
     f"-{uploads_arg_name[0]}",
     type=str,
@@ -74,7 +78,7 @@ parser.add_argument(
     help=help_messages.HELP_MSG_CATEGORY,
 )
 
-parser.add_argument(
+required_group.add_argument(
     f"--{sync_arg_name}",
     f"-{sync_arg_name[0]}",
     action="store_true",
