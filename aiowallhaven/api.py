@@ -137,15 +137,12 @@ class WallHavenAPI(object):
     async def get_user_collections_list(
         self,
         username: str = None,
-        search_filter: SearchFilter = SearchFilter(),
     ):
         query_url = "collections"
-        query_params = search_filter.to_query_params_dict()
-
         if username:
             query_url += "/" + username
 
-        json_collections = await self._get_method(query_url, params=query_params)
+        json_collections = await self._get_method(query_url)
         collections = []
         for collection in json_collections["data"]:
             collections.append(
