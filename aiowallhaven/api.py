@@ -93,11 +93,15 @@ class WallHavenAPI(object):
         return wallpaper_info
 
     async def search(
-        self, query: str = None, search_filter: SearchFilter = SearchFilter()
+        self,
+        query: str = None,
+        page: int = 1,
+        search_filter: SearchFilter = SearchFilter(),
     ):
         query_params: dict = search_filter.to_query_params_dict()
         if query:
             query_params["q"] = query
+        query_params["page"] = page
 
         json_search_results = await self._get_method(
             "search"
@@ -121,11 +125,14 @@ class WallHavenAPI(object):
     async def get_user_uploads(
         self,
         username: str,
+        page: int = 1,
         search_filter: SearchFilter = SearchFilter(
-            page=1, purity=PurityFilter(Purity.sfw, Purity.sketchy)
+            purity=PurityFilter(Purity.sfw, Purity.sketchy)
         ),
     ):
-        return await self.search(query=f"@{username}", search_filter=search_filter)
+        return await self.search(
+            query=f"@{username}", page=page, search_filter=search_filter
+        )
 
     async def get_user_collections_list(
         self,
@@ -155,11 +162,13 @@ class WallHavenAPI(object):
         self,
         username: str,
         collection_identifier: Union[str, int],
+        page=1,
         is_by_id: bool = False,
-        search_filter=SearchFilter(page=1),
+        search_filter=SearchFilter(),
     ):
         query_url = ""
         query_params = search_filter.to_query_params_dict()
+        query_params["page"] = page
 
         if is_by_id:
             if not isinstance(collection_identifier, int):

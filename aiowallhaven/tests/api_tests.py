@@ -150,8 +150,10 @@ class ApiTestSearch(unittest.IsolatedAsyncioTestCase):
 
     async def test_page(self):
         target_page = 2
-        search_filter = SearchFilter(page=target_page)
-        response = await api.search(query="anime", search_filter=search_filter)
+        search_filter = SearchFilter()
+        response = await api.search(
+            query="anime", page=target_page, search_filter=search_filter
+        )
         self.assertEqual(target_page, int(response.meta.current_page))
 
     # ------------------------------ #

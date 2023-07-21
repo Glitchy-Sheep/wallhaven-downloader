@@ -481,7 +481,6 @@ class SearchFilter:
     resolutions: list[Resolution] = None
     ratios: list[Ratio] = None
     color: Color = None
-    page: int = None
     seed: str = None
 
     def to_query_params_dict(self):
@@ -535,9 +534,6 @@ class SearchFilter:
 
         if self.color:
             query_params["colors"] = self.color.value
-
-        if self.page:
-            query_params["page"] = str(self.page)
 
         if self.seed:
             query_params["seed"] = self.seed
