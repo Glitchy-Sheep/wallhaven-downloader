@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from http import HTTPStatus
-from typing import Dict, Union
+from typing import Dict, Union, Optional, List
 
 import aiohttp
 import aiohttp.web
@@ -11,10 +11,8 @@ from aiolimiter import AsyncLimiter
 
 from aiowallhaven.types import api_exception_reasons as exception_reasons
 from aiowallhaven.types.wallhaven_types import (
-    Purity,
     UserCollectionInfo,
     WallpaperInfo,
-    PurityFilter,
     WallpaperCollection,
     WallpaperTag,
     UserSettings,
@@ -45,7 +43,13 @@ class WallHavenAPI(object):
     def __init__(self, api_key: str):
         self.api_key: str = api_key
 
-    async def _get_method(self, url: str, params: Dict = None) -> Dict:
+    async def _get_method(self, url: str, params: Optional[Dict] = None) -> Dict:
+        """
+        Basic method to requesting data from the API
+        :param url: endpoint url
+        :param params: API parameters
+        :return: JSON response
+        """
         if params is None:
             params = {}
 
@@ -87,6 +91,11 @@ class WallHavenAPI(object):
                             )
 
     async def get_wallpaper(self, wallpaper_id: str) -> WallpaperInfo:
+        """
+        Get all info about particular wallpaper
+        :param wallpaper_id: id of the wallpaper
+        :return: WallpaperInfo
+        """
         url = f"w/{wallpaper_id}"
         json_data = await self._get_method(url)
         wallpaper_info = WallpaperInfo.from_json(json_data["data"])
@@ -97,7 +106,14 @@ class WallHavenAPI(object):
         query: str = None,
         page: int = 1,
         search_filter: SearchFilter = SearchFilter(),
-    ):
+    ) -> WallpaperCollection:
+        """
+        Search wallpapers throughout the entire wallhaven.cc
+        :param query: Search query (see doc at https://wallhaven.cc/help/api for more info)
+        :param page: Page number of the search results
+        :param search_filter: Filter for searching results by purity, category etc.
+        :return: WallpaperCollection
+        """
         query_params: dict = search_filter.to_query_params_dict()
         if query:
             query_params["q"] = query
@@ -112,12 +128,21 @@ class WallHavenAPI(object):
         search_results = WallpaperCollection.from_json(json_search_results)
         return search_results
 
-    async def get_tag(self, tag: int):
-        tag_info_json = await self._get_method(f"tag/{tag}")
+    async def get_tag(self, tag_id: int) -> WallpaperTag:
+        """
+        Get info about particular tag
+        :param tag_id: id of the tag
+        :return: WallpaperTag
+        """
+        tag_info_json = await self._get_method(f"tag/{tag_id}")
         tag_info = WallpaperTag.from_json(tag_info_json["data"])
         return tag_info
 
-    async def my_settings(self):
+    async def my_settings(self) -> UserSettings:
+        """
+        Get settings of the current user
+        :return: UserSettings
+        """
         my_settings_json = await self._get_method("settings")
         my_settings = UserSettings.from_json(my_settings_json["data"])
         return my_settings
@@ -126,10 +151,15 @@ class WallHavenAPI(object):
         self,
         username: str,
         page: int = 1,
-        search_filter: SearchFilter = SearchFilter(
-            purity=PurityFilter(Purity.sfw, Purity.sketchy)
-        ),
-    ):
+        search_filter: SearchFilter = SearchFilter(),
+    ) -> WallpaperCollection:
+        """
+        Get user uploads as a collection
+        :param username: Username of the user
+        :param page: Page number of the uploads results
+        :param search_filter: Filter for searching results by purity, category etc.
+        :return: WallpaperCollection
+        """
         return await self.search(
             query=f"@{username}", page=page, search_filter=search_filter
         )
@@ -137,7 +167,12 @@ class WallHavenAPI(object):
     async def get_user_collections_list(
         self,
         username: str = None,
-    ):
+    ) -> List[UserCollectionInfo]:
+        """
+        Get all user collections meta info as a list
+        :param username: Username of the user
+        :return: List[UserCollectionInfo]
+        """
         query_url = "collections"
         if username:
             query_url += "/" + username
@@ -162,7 +197,16 @@ class WallHavenAPI(object):
         page=1,
         is_by_id: bool = False,
         search_filter=SearchFilter(),
-    ):
+    ) -> WallpaperCollection:
+        """
+        Get detailed info about user collection
+        :param username: Username of the user
+        :param collection_identifier: ID or name of the collection
+        :param page: Page number of the collection results
+        :param is_by_id: True if you want to get collection by ID
+        :param search_filter: Filter for searching results by purity, category etc.
+        :return: WallpaperCollection
+        """
         query_url = ""
         query_params = search_filter.to_query_params_dict()
         query_params["page"] = page
