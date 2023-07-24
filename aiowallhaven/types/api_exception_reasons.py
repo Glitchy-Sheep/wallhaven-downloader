@@ -1,3 +1,5 @@
+# --------- Network Errors ----------
+
 NotFoundError = """
     The requested resource was not found.
 """
@@ -16,14 +18,16 @@ GeneralError = """
     {status_code}
 """
 
+# --------- Value Errors ----------
+
 ValueErrorPurity = """
-    No valid purity filter found. 
-    Only 'sfw', 'sketchy', and 'nsfw' are considered to be valid purity filters.
+    Invalid purity filter was provided: {purity}
+    Valid formats: PurityFilter(Purity.sfw, Purity.sketchy...)
 """
 
 ValueErrorCategory = """
-    No valid category filter found. 
-    Only 'general', 'anime', and 'people' are considered to be valid category filters.
+    Invalid category filter was provided: {category}
+    Valid formats: CategoryFilter(Category.sfw, Category.nsfw...)
 """
 
 ValueErrorSorting = """
@@ -48,7 +52,8 @@ ValueErrorAtleast = """
 """
 
 ValueErrorResolutions = """
-    At least one of provided resolutions is incorrect.
+    Invalid resolution was provided: '{resolution}' in resolutions list {resolutions_list}.
+    Valid format: [Resolution(1920, 1080), Resolution(2560x1600)]
 """
 
 ValueErrorResolutionsFormat = """
@@ -62,7 +67,7 @@ ValueErrorRatios = """
 """
 
 ValueErrorRatiosFormat = """
-    The argument neither a Python list nor string. 
+    The argument should be a list of ratios.
     Valid format: [Ratio(16, 9), Ratio(16, 10)]. 
 """
 

@@ -31,6 +31,34 @@ class PurityFilter:
         else:
             self.active_purities = set()
 
+    @staticmethod
+    def sfw() -> "PurityFilter":
+        """
+        Alias for PurityFilter(Purity.sfw)
+        """
+        return PurityFilter(Purity.sfw)
+
+    @staticmethod
+    def sketchy() -> "PurityFilter":
+        """
+        Alias for PurityFilter(Purity.sketchy)
+        """
+        return PurityFilter(Purity.sketchy)
+
+    @staticmethod
+    def nsfw() -> "PurityFilter":
+        """
+        Alias for PurityFilter(Purity.nsfw)
+        """
+        return PurityFilter(Purity.nsfw)
+
+    @staticmethod
+    def all() -> "PurityFilter":
+        """
+        Alias for PurityFilter(Purity.sfw, Purity.sketchy, Purity.nsfw)
+        """
+        return PurityFilter(Purity.sfw, Purity.sketchy, Purity.nsfw)
+
     def set_purity(self, purity: Purity):
         """
         Sets a specific purity level as active in the filter.
@@ -98,6 +126,34 @@ class CategoryFilter:
         else:
             self.active_categories = set()
 
+    @staticmethod
+    def general() -> "CategoryFilter":
+        """
+        Alias for CategoryFilter(Category.anime)
+        """
+        return CategoryFilter(Category.general)
+
+    @staticmethod
+    def anime() -> "CategoryFilter":
+        """
+        Alias for CategoryFilter(Category.anime)
+        """
+        return CategoryFilter(Category.anime)
+
+    @staticmethod
+    def people() -> "CategoryFilter":
+        """
+        Alias for CategoryFilter(Category.people)
+        """
+        return CategoryFilter(Category.people)
+
+    @staticmethod
+    def all() -> "CategoryFilter":
+        """
+        Alias for CategoryFilter(Category.general, Category.anime, Category.people)
+        """
+        return CategoryFilter(Category.general, Category.anime, Category.people)
+
     def set_category(self, category: Category):
         """
         Sets a category as active.
@@ -143,7 +199,7 @@ class CategoryFilter:
         return rep
 
 
-@dataclass
+@dataclass(order=True)
 class Resolution:
     """
     Object representing picture resolution as x and y (both must be positive).
@@ -171,14 +227,6 @@ class Resolution:
         x, y = map(int, value.split("x", maxsplit=1))
         return Resolution(x, y)
 
-    def __eq__(self, other) -> bool:
-        if isinstance(other, Resolution):
-            return self.x == other.x and self.y == other.y
-        return NotImplemented
-
-    def __ne__(self, other) -> bool:
-        return not self.__eq__(other)
-
     def __post_init__(self):
         if self.x <= 0 or self.y <= 0:
             raise ValueError("Both x and y must be positive.")
@@ -187,7 +235,7 @@ class Resolution:
         return f"{self.x}x{self.y}"
 
 
-@dataclass
+@dataclass(order=True)
 class Ratio(Resolution):
     """
     Object representing picture ratio as x and y (both must be positive).
@@ -466,31 +514,39 @@ class UserSettings:
         return UserSettings(**json_data)
 
 
-@dataclass
+@dataclass()
 class SearchFilter:
     """
     Object representing query params.
     """
 
-    category: CategoryFilter = None
-    purity: PurityFilter = None
-    sorting: Sorting = None
-    order: Order = None
-    toprange: TopRange = None
-    atleast: Resolution = None
-    resolutions: list[Resolution] = None
-    ratios: list[Ratio] = None
-    color: Color = None
-    seed: str = None
-    ai_art_filter: bool = False  # show by default
+    category: Optional[CategoryFilter] = None
+    purity: Optional[PurityFilter] = None
+    sorting: Optional[Sorting] = None
+    order: Optional[Order] = None
+    toprange: Optional[TopRange] = None
+    atleast: Optional[Resolution] = None
+    resolutions: Optional[list[Resolution]] = None
+    ratios: Optional[list[Ratio]] = None
+    color: Optional[Color] = None
+    seed: Optional[str] = None
+    ai_art_filter: Optional[bool] = False  # show by default
 
     def to_query_params_dict(self):
         query_params = {}
 
         if self.category:
+            if not isinstance(self.category, CategoryFilter):
+                raise ValueError(
+                    exception_reasons.ValueErrorCategory.format(category=self.category)
+                )
             query_params["categories"] = str(self.category)
 
         if self.purity:
+            if not isinstance(self.purity, PurityFilter):
+                raise ValueError(
+                    exception_reasons.ValueErrorPurity.format(purity=self.purity)
+                )
             query_params["purity"] = str(self.purity)
 
         if self.sorting:
@@ -519,7 +575,11 @@ class SearchFilter:
 
             for res in self.resolutions:
                 if not isinstance(res, Resolution):
-                    raise ValueError(exception_reasons.ValueErrorResolutions)
+                    raise ValueError(
+                        exception_reasons.ValueErrorResolutions.format(
+                            resolution=res, resolutions_list=self.resolutions
+                        )
+                    )
 
             query_params["resolutions"] = "%2C".join(str(x) for x in self.resolutions)
 
