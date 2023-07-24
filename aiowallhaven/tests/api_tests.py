@@ -105,8 +105,7 @@ class ApiTestSearch(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(result.meta.seed)  # random set seed
 
     # This test can fail occasionally due to wallhaven API rare errors
-    # Sometimes the API returns one or two wallpapers whose
-    # values deviate slightly from the sorting order.
+    # this is definitely API error because ascending order is possible
     async def test_sorting_favorites(self):
         target_sorting = Sorting.favorites
         target_order = Order.desc
