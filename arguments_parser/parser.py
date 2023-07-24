@@ -116,7 +116,8 @@ parser.add_argument(
     f"--{api_key_arg_name}",
     f"-{api_key_arg_name[0]}",
     type=str,
-    metavar="",
+    metavar="your_key",
+    help=help_messages.HELP_MSG_API_KEY,
 )
 
 args = vars(parser.parse_args())

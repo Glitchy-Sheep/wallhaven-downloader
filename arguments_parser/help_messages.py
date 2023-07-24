@@ -41,3 +41,8 @@ default: (general, people, anime)\n\n"""
 
 HELP_MSG_DOWNLOADS_PATH = """Path where all downloads will be located
 default: ./downloads\n\n"""
+
+HELP_MSG_API_KEY = """API key for accessing the Wallhaven API.
+you can get it from https://wallhaven.cc/api/
+Without it you won't be able to download certain wallpapers.
+"""
