@@ -1,27 +1,26 @@
-from enum import Enum
-from typing import Optional
+from typing import Optional, Callable
 from dataclasses import dataclass
 
-
-class TaskStatus(Enum):
-    SCHEDULED = 0
-    IN_PROGRESS = 1
-    FAILED = 2
-    COMPLETED = 3
+DEFAULT_CHUNK_SIZE = 65536
 
 
 @dataclass
-class DownloadFileInfo:
+class DownloadTaskInfo:
     url: str
     save_dir: str
-    filename: str
-    chunk_size: int
-    status: TaskStatus
-    exception: Optional[BaseException] = None
+    filename: Optional[str]
+    chunk_size: Optional[int] = DEFAULT_CHUNK_SIZE
 
+    start_downloading_callback: Optional[Callable] = None
+    chunk_downloaded_callback: Optional[Callable] = None
+    finish_callback: Optional[Callable] = None
+    fail_callback: Optional[Callable] = None
 
-@dataclass
-class ProgressbarSettings:
-    show_total_progress: bool = True
-    show_task_progress: bool = False
-    main_pbar_pos: int = 0
+    _id: Optional[int] = None
+    _file_size_bytes: int = None
+
+    def get_id(self):
+        return self._id
+
+    def get_filesize(self):
+        return self._file_size_bytes

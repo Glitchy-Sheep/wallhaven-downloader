@@ -1,223 +1,119 @@
-import os
 import asyncio
-from http import HTTPStatus
-from functools import partial
+import os
+from typing import List
 
-import aiohttp
 import aiofiles
 import aiofiles.os
-
-from tqdm.asyncio import tqdm
+import aiofiles.ospath
+import aiohttp
 from aiolimiter import AsyncLimiter
-from aiohttp_retry.client import RetryClient
-from aiohttp_retry.retry_options import RetryOptionsBase, ExponentialRetry
 
-from async_downloader.types import DownloadFileInfo, TaskStatus, ProgressbarSettings
-from async_downloader.constants import (
-    DEFAULT_RETRY_OPTIONS,
-    DEFAULT_PROGRESSBAR_OPTIONS,
-    UNLIMITED_AIOLIMITER,
-)
+from async_downloader.types import DownloadTaskInfo
 
 
-async def default_fail_handler_callback(fail_info: DownloadFileInfo):
-    filepath = os.path.join(fail_info.save_dir, fail_info.filename)
-    if await aiofiles.os.path.exists(filepath):
-        await aiofiles.os.remove(filepath)
+# todo:
+# 1. Add aiohttp_retry
+# 2. Add proxy support
+# 3. Add error statuses handler
 
 
 class ConcurrentDownloader:
     def __init__(
         self,
-        concurrent_tasks_limit: int = 1,
-        progressbars_options: ProgressbarSettings = DEFAULT_PROGRESSBAR_OPTIONS,
-        aio_limiter: AsyncLimiter = UNLIMITED_AIOLIMITER,
-        retry_options: RetryOptionsBase = DEFAULT_RETRY_OPTIONS,
-        fail_callback=default_fail_handler_callback,
+        max_concurrent_tasks: int = 1,
+        requests_limiter: AsyncLimiter = None,
+        start_task_id: int = 1,
     ):
-        # Callbacks
-        self.fail_callback = fail_callback
+        self.scheduled_tasks: List[DownloadTaskInfo] = []
+        self.in_progress_tasks: List[DownloadTaskInfo] = []
+        self.finished_tasks: List[DownloadTaskInfo] = []
+        self.failed_tasks: List[DownloadTaskInfo] = []
 
-        # Progressbars Settings
-        self.show_total_progress = progressbars_options.show_total_progress
-        self.show_task_progress = progressbars_options.show_task_progress
-        self._main_pbar_pos = progressbars_options.main_pbar_pos
+        self.max_concurrent_tasks = max_concurrent_tasks
+        self.requests_limiter = requests_limiter
 
-        # Downloading settings
-        self._aio_limiter = aio_limiter
-        self._retry_options = retry_options
-        self.concurrent_tasks_limit = concurrent_tasks_limit
-
-        # Task managing containers
-        self.pending_tasks: list[DownloadFileInfo] = []
-        self._running_tasks: list[DownloadFileInfo] = []
-        self.finished_tasks: list[DownloadFileInfo] = []
-        self.failed_tasks: list[DownloadFileInfo] = []
-        self._task_workers: list[asyncio.Task] = []
+        self._async_jobs: list[asyncio.Task] = []
+        self._start_task_id = start_task_id
 
     @staticmethod
-    def _get_filesize_from_response(response):
+    async def _download_single_file(self, task: DownloadTaskInfo):
+        if self.requests_limiter is not None:
+            await self.requests_limiter.acquire()
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(task.url) as response:
+                task._file_size_bytes = int(response.headers.get("Content-Length"))
+
+                save_path = os.path.join(task.save_dir, task.filename)
+                await aiofiles.os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                async with aiofiles.open(save_path, "wb") as f:
+                    if task.start_downloading_callback is not None:
+                        await task.start_downloading_callback(task)
+                    async for data in response.content.iter_chunked(task.chunk_size):
+                        await f.write(data)
+                        if task.chunk_downloaded_callback is not None:
+                            await task.chunk_downloaded_callback(task, len(data))
+
+    async def _start_download_worker(self, task: DownloadTaskInfo):
         try:
-            total_size = int(response.headers.get("content-length"), 0)
-        except TypeError:
-            # Not every file can have a Content-Length header.
-            total_size = None
-        return total_size
-
-    @staticmethod
-    def _get_response_exception(response: aiohttp.ClientResponse):
-        try:
-            response.raise_for_status()
-        except aiohttp.ClientResponseError as ex:
-            return ex
-
-    @staticmethod
-    async def _write_data_to_file(response, save_path, chunk_size, task_pbar):
-        async with aiofiles.open(save_path, "wb") as f:
-            async for data in response.content.iter_chunked(chunk_size):
-                await f.write(data)
-                task_pbar.update(len(data))
-
-    def _create_task_pbar(self, filesize: int, task_info: DownloadFileInfo, pos=1):
-        task_pbar = tqdm(
-            total=filesize,
-            unit="iB",
-            unit_scale=True,
-            desc=task_info.filename,
-            leave=False,
-            position=pos,
-            disable=(not self.show_task_progress),
-        )
-        return task_pbar
-
-    def _create_general_pbar(self, task_count):
-        general_pbar = tqdm(
-            total=task_count,
-            leave=True,
-            position=self._main_pbar_pos,
-            disable=(not self.show_total_progress),
-            colour="green",
-        )
-        return general_pbar
-
-    async def _download_single_file(self, task_info: DownloadFileInfo, pbar_pos=1):
-        try:
-            save_path = os.path.join(task_info.save_dir, task_info.filename)
-            os.makedirs(task_info.save_dir, exist_ok=True)
-
-            async with self._aio_limiter:
-                async with RetryClient(retry_options=self._retry_options) as session:
-                    response = await session.get(task_info.url)
-                    if response.status != HTTPStatus.OK:
-                        task_info.exception = self._get_response_exception(response)
-                        task_info.status = TaskStatus.FAILED
-                        return task_info
-
-                    total_size = self._get_filesize_from_response(response)
-                    relative_pbar_pos = self._main_pbar_pos + pbar_pos
-
-                    try:
-                        task_pbar = self._create_task_pbar(
-                            total_size, task_info, relative_pbar_pos
-                        )
-
-                        await self._write_data_to_file(
-                            response, save_path, task_info.chunk_size, task_pbar
-                        )
-                    finally:
-                        task_pbar.clear()
-                        task_pbar.close()
-
-                    task_info.status = TaskStatus.COMPLETED
-                    return task_info
+            await self._download_single_file(self, task)
+            if task.finish_callback is not None:
+                await task.finish_callback(task)
+            self.in_progress_tasks.remove(task)
+            self.finished_tasks.append(task)
         except (
             asyncio.CancelledError,
-            aiohttp.ClientOSError,
             aiohttp.ClientError,
-        ) as ex:
-            await self.fail_callback(task_info)
-            task_info.exception = ex
-            task_info.status = TaskStatus.FAILED
-            return task_info
+            aiohttp.ClientOSError,
+        ):
+            if task.fail_callback is not None:
+                await task.fail_callback(task)
+            file_path = os.path.join(task.save_dir, task.filename)
+            if await aiofiles.ospath.exists(file_path):
+                await aiofiles.os.remove(file_path)
+            self.in_progress_tasks.remove(task)
+            self.failed_tasks.append(task)
+            raise
 
-    async def _cancel_all_tasks(self):
-        for task in self._task_workers:
-            task.cancel()
-            await task
-
-    def schedule_download(self, url, save_dir, filename=None, chunk_size=1024):
-        if filename is None:
-            filename = os.path.basename(url)
-
-        self.pending_tasks.append(
-            DownloadFileInfo(
-                url=url,
-                save_dir=save_dir,
-                filename=filename,
-                chunk_size=chunk_size,
-                status=TaskStatus.SCHEDULED,
+    async def _assign_new_task_to_worker(self, task_id: int):
+        task_info = self.scheduled_tasks.pop(0)
+        task_info._id = task_id
+        self.in_progress_tasks.append(task_info)
+        self._async_jobs.append(
+            asyncio.create_task(
+                self._start_download_worker(task_info), name=f"{task_id}"
             )
         )
 
-    # worker's done callback
-    def _mark_task_as_finished(self, _future_placeholder, task_info):
-        self._running_tasks.remove(task_info)
-        self.finished_tasks.append(task_info)
+    async def _replace_finished_job_with_pending(self, job: asyncio.Task):
+        job_task_id = int(job.get_name())
+        self._async_jobs.remove(job)
+        await self._assign_new_task_to_worker(job_task_id)
 
-    def _mark_task_as_running(self, task_info):
-        self._running_tasks.append(task_info)
-
-    def _mark_task_as_failed(self, task_info):
-        self._running_tasks.remove(task_info)
-        self.failed_tasks.append(task_info)
-
-    async def _assign_task_to_worker(self, pbar_pos):
-        task_info = self.pending_tasks.pop()
-        self._mark_task_as_running(task_info)
-
-        clean_up_callback = partial(self._mark_task_as_finished, task_info=task_info)
-        task = asyncio.create_task(
-            self._download_single_file(task_info, pbar_pos), name=str(pbar_pos)
-        )
-        task.add_done_callback(clean_up_callback)
-
-        self._task_workers.append(task)
-
-    async def _assign_initial_tasks(self):
-        # assign N tasks to workers, so we will process N tasks simultaneously
-        initial_task_count = min(self.concurrent_tasks_limit, len(self.pending_tasks))
-        for i in range(initial_task_count):
-            relative_pbar_pos = self._main_pbar_pos + i + 1
-            await self._assign_task_to_worker(relative_pbar_pos)
-
-    async def replace_done_task_with_pending_task(self, done_task):
-        self._task_workers.remove(done_task)
-        if self.pending_tasks:
-            done_pbar_pos = int(done_task.get_name())
-            await self._assign_task_to_worker(done_pbar_pos)
-
-    async def wait_for_tasks(self, tasks, general_pbar):
-        done, running_tasks = await asyncio.wait(
-            tasks, return_when=asyncio.FIRST_COMPLETED
-        )
-        for task in done:
-            # if any task is failed - cancel others
-            task_info: DownloadFileInfo = task.result()
-            if task_info.status != TaskStatus.COMPLETED:
-                await self._cancel_all_tasks()
-                raise task.result().exception
-
-            general_pbar.update()
-            await self.replace_done_task_with_pending_task(task)
+    async def append_task(self, task: DownloadTaskInfo):
+        self.scheduled_tasks.append(task)
 
     async def run_downloader(self):
-        total_task_count = len(self.pending_tasks)
-        general_pbar = self._create_general_pbar(total_task_count)
+        if len(self.scheduled_tasks) == 0:
+            return
 
-        await self._assign_initial_tasks()
+        tasks_to_perform = min(self.max_concurrent_tasks, len(self.scheduled_tasks))
 
-        try:
-            while self.pending_tasks or self._running_tasks:
-                await self.wait_for_tasks(self._task_workers, general_pbar)
-        finally:
-            general_pbar.close()
+        for task_id in range(
+            self._start_task_id, tasks_to_perform + self._start_task_id
+        ):
+            await self._assign_new_task_to_worker(task_id)
+
+        while self.scheduled_tasks or self.in_progress_tasks:
+            done, pending = await asyncio.wait(
+                self._async_jobs, return_when=asyncio.FIRST_COMPLETED
+            )
+
+            for async_job in done:
+                if async_job.exception() is not None:
+                    for unfinished_task in pending:
+                        unfinished_task.cancel()
+                    raise async_job.exception()
+
+                if self.scheduled_tasks:
+                    await self._replace_finished_job_with_pending(async_job)
