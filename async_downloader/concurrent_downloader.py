@@ -36,13 +36,20 @@ class ConcurrentDownloader:
         self._start_task_id = start_task_id
 
     @staticmethod
+    async def _get_filesize_from_response(response):
+        try:
+            return int(response.headers["content-length"])
+        except (KeyError, ValueError, TypeError):
+            return 0
+
+    @staticmethod
     async def _download_single_file(self, task: DownloadTaskInfo):
         if self.requests_limiter is not None:
             await self.requests_limiter.acquire()
 
         async with aiohttp.ClientSession() as session:
             async with session.get(task.url) as response:
-                task._file_size_bytes = int(response.headers.get("Content-Length"))
+                task._file_size_bytes = await self._get_filesize_from_response(response)
 
                 save_path = os.path.join(task.save_dir, task.filename)
                 await aiofiles.os.makedirs(os.path.dirname(save_path), exist_ok=True)

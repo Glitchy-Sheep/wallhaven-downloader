@@ -8,7 +8,7 @@ DEFAULT_CHUNK_SIZE = 65536
 class DownloadTaskInfo:
     url: str
     save_dir: str
-    filename: Optional[str]
+    filename: Optional[str] = None
     chunk_size: Optional[int] = DEFAULT_CHUNK_SIZE
 
     start_downloading_callback: Optional[Callable] = None
@@ -24,3 +24,7 @@ class DownloadTaskInfo:
 
     def get_filesize(self):
         return self._file_size_bytes
+
+    def __post_init__(self):
+        if self.filename is None:
+            self.filename = self.url.split("/")[-1]
