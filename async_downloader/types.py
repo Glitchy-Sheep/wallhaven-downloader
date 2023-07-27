@@ -28,3 +28,11 @@ class DownloadTaskInfo:
     def __post_init__(self):
         if self.filename is None:
             self.filename = self.url.split("/")[-1]
+
+
+@dataclass()
+class DownloaderStatus:
+    scheduled_tasks_count: int
+    in_progress_tasks_count: int
+    finished_tasks_count: int
+    failed_tasks_count: int
