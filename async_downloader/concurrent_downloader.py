@@ -140,6 +140,9 @@ class ConcurrentDownloader:
             )
 
             for async_job in done:
+                if tasks_status_changed_callback is not None:
+                    tasks_status_changed_callback(await self.get_status())
+
                 # If any task encounters an error,
                 # cancel the remaining tasks
                 # and wait for the cancellation process to complete.
@@ -151,6 +154,3 @@ class ConcurrentDownloader:
 
                 if self._scheduled_tasks:
                     await self._replace_finished_job_with_pending(async_job)
-
-                if tasks_status_changed_callback is not None:
-                    tasks_status_changed_callback(await self.get_status())
