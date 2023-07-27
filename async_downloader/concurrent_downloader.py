@@ -1,6 +1,7 @@
 import asyncio
 import os
-from typing import List
+from collections import deque
+from typing import Optional, Deque
 
 import aiofiles
 import aiofiles.os
@@ -20,29 +21,29 @@ from async_downloader.types import DownloadTaskInfo
 class ConcurrentDownloader:
     def __init__(
         self,
-        max_concurrent_tasks: int = 1,
-        requests_limiter: AsyncLimiter = None,
-        start_task_id: int = 1,
+        max_concurrent_tasks: Optional[int] = 1,
+        requests_limiter: Optional[AsyncLimiter] = None,
+        start_task_id: Optional[int] = 1,
     ):
-        self.scheduled_tasks: List[DownloadTaskInfo] = []
-        self.in_progress_tasks: List[DownloadTaskInfo] = []
-        self.finished_tasks: List[DownloadTaskInfo] = []
-        self.failed_tasks: List[DownloadTaskInfo] = []
+        self.requests_limiter: Optional[AsyncLimiter] = requests_limiter
 
-        self.max_concurrent_tasks = max_concurrent_tasks
-        self.requests_limiter = requests_limiter
+        self._scheduled_tasks: Deque[DownloadTaskInfo] = deque()
+        self._in_progress_tasks: Deque[DownloadTaskInfo] = deque()
+        self._finished_tasks: Deque[DownloadTaskInfo] = deque()
+        self._failed_tasks: Deque[DownloadTaskInfo] = deque()
 
-        self._async_jobs: list[asyncio.Task] = []
-        self._start_task_id = start_task_id
+        self._max_concurrent_tasks = max_concurrent_tasks
+
+        self._async_jobs: Deque[asyncio.Task] = deque()
+        self._start_task_id: int = start_task_id
 
     @staticmethod
-    async def _get_filesize_from_response(response):
+    async def _get_filesize_from_response(response: aiohttp.ClientResponse):
         try:
             return int(response.headers["content-length"])
         except (KeyError, ValueError, TypeError):
             return 0
 
-    @staticmethod
     async def _download_single_file(self, task: DownloadTaskInfo):
         if self.requests_limiter is not None:
             await self.requests_limiter.acquire()
@@ -61,31 +62,38 @@ class ConcurrentDownloader:
                         if task.chunk_downloaded_callback is not None:
                             await task.chunk_downloaded_callback(task, len(data))
 
+    async def _cleanup_failed_task(self, task: DownloadTaskInfo):
+        self._in_progress_tasks.remove(task)
+        self._failed_tasks.append(task)
+
+        file_path = os.path.join(task.save_dir, task.filename)
+        if await aiofiles.ospath.exists(file_path):
+            await aiofiles.os.remove(file_path)
+
+        if task.fail_callback is not None:
+            await task.fail_callback(task)
+
     async def _start_download_worker(self, task: DownloadTaskInfo):
         try:
-            await self._download_single_file(self, task)
+            await self._download_single_file(task)
             if task.finish_callback is not None:
                 await task.finish_callback(task)
-            self.in_progress_tasks.remove(task)
-            self.finished_tasks.append(task)
-        except (
-            asyncio.CancelledError,
-            aiohttp.ClientError,
-            aiohttp.ClientOSError,
-        ):
-            if task.fail_callback is not None:
-                await task.fail_callback(task)
-            file_path = os.path.join(task.save_dir, task.filename)
-            if await aiofiles.ospath.exists(file_path):
-                await aiofiles.os.remove(file_path)
-            self.in_progress_tasks.remove(task)
-            self.failed_tasks.append(task)
+            self._in_progress_tasks.remove(task)
+            self._finished_tasks.append(task)
+        except asyncio.CancelledError:
+            # Task can be cancelled on top level,
+            # so we just do a cleanup before return
+            await self._cleanup_failed_task(task)
+        except (aiohttp.ClientError, aiohttp.ClientOSError):
+            # But if the task itself has errors
+            # then it must propagate them further after cleaning up
+            await self._cleanup_failed_task(task)
             raise
 
-    async def _assign_new_task_to_worker(self, task_id: int):
-        task_info = self.scheduled_tasks.pop(0)
+    async def _start_task_processing(self, task_id: int):
+        task_info = self._scheduled_tasks.popleft()
         task_info._id = task_id
-        self.in_progress_tasks.append(task_info)
+        self._in_progress_tasks.append(task_info)
         self._async_jobs.append(
             asyncio.create_task(
                 self._start_download_worker(task_info), name=f"{task_id}"
@@ -95,32 +103,41 @@ class ConcurrentDownloader:
     async def _replace_finished_job_with_pending(self, job: asyncio.Task):
         job_task_id = int(job.get_name())
         self._async_jobs.remove(job)
-        await self._assign_new_task_to_worker(job_task_id)
+        await self._start_task_processing(job_task_id)
 
-    async def append_task(self, task: DownloadTaskInfo):
-        self.scheduled_tasks.append(task)
+    async def _start_initial_tasks(self, start_id: int):
+        self._start_task_id = start_id
 
-    async def run_downloader(self):
-        if len(self.scheduled_tasks) == 0:
-            return
-
-        tasks_to_perform = min(self.max_concurrent_tasks, len(self.scheduled_tasks))
+        tasks_to_perform = min(self._max_concurrent_tasks, len(self._scheduled_tasks))
 
         for task_id in range(
             self._start_task_id, tasks_to_perform + self._start_task_id
         ):
-            await self._assign_new_task_to_worker(task_id)
+            await self._start_task_processing(task_id)
 
-        while self.scheduled_tasks or self.in_progress_tasks:
+    async def append_task(self, task: DownloadTaskInfo):
+        self._scheduled_tasks.append(task)
+
+    async def run_downloader(self, start_id=1):
+        if len(self._scheduled_tasks) == 0:
+            return
+
+        await self._start_initial_tasks(start_id)
+
+        while self._scheduled_tasks or self._in_progress_tasks:
             done, pending = await asyncio.wait(
                 self._async_jobs, return_when=asyncio.FIRST_COMPLETED
             )
 
             for async_job in done:
+                # If any task encounters an error,
+                # cancel the remaining tasks
+                # and wait for the cancellation process to complete.
                 if async_job.exception() is not None:
                     for unfinished_task in pending:
                         unfinished_task.cancel()
+                    await asyncio.gather(*pending, return_exceptions=True)
                     raise async_job.exception()
 
-                if self.scheduled_tasks:
+                if self._scheduled_tasks:
                     await self._replace_finished_job_with_pending(async_job)
