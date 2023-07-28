@@ -6,11 +6,11 @@ This module defines some help messages constants
 # they make the formatting of the help more structured .
 
 PROGRAM_DESCRIPTION = """
-    This script helps you to download your or any user's collections.
-    You can:
-      - Download someone's uploads / collections.
-      - Filter any downloads (e.g. for skipping nsfw/sfw content).
-      - Check for collections of particular user."""
+    This script helps you to download your or any user's collections / uploads.
+    
+    Don't worry, if any error occurs during the download process
+    then all corrupted/unfinished images will be deleted.
+"""
 
 HELP_MSG_INFO = """Specifies a list of users whose collections you want to view
 example:
@@ -41,5 +41,9 @@ default: ./downloads\n\n"""
 
 HELP_MSG_API_KEY = """API key for accessing the Wallhaven API.
 you can get it from https://wallhaven.cc/api/
-Without it you won't be able to download certain wallpapers.
-"""
+Without it you won't be able to download certain wallpapers.\n\n"""
+
+HELP_MSG_LIMIT = """Count of requests per second (default = 1)
+You can increase it to download more wallpapers at a time.
+But it can be less stable and result TooManyRequestsError sometimes.
+API is pretty strict about it, but sometimes increasing it may be efficient.\n\n"""

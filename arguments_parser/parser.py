@@ -32,6 +32,7 @@ sync_arg_name = "sync"
 downloads_path_arg_name = "downloads_path"
 workers_arg_name = "workers"
 api_key_arg_name = "api_key"
+limit_arg_name = "limit"
 
 
 required_group.add_argument(
@@ -120,6 +121,16 @@ parser.add_argument(
 )
 
 
+parser.add_argument(
+    f"--{limit_arg_name}",
+    f"-{limit_arg_name[0]}",
+    type=int,
+    metavar="",
+    default=1,
+    help=help_messages.HELP_MSG_LIMIT,
+)
+
+
 args = vars(parser.parse_args())
 
 
@@ -201,3 +212,9 @@ def get_workers_count():
 
 def get_api_key():
     return args[api_key_arg_name]
+
+
+def get_requests_per_second():
+    if args[limit_arg_name] <= 0:
+        return 1
+    return args[limit_arg_name]
