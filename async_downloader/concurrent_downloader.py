@@ -1,12 +1,14 @@
 import asyncio
 import os
 from collections import deque
+from http import HTTPStatus
 from typing import Optional, Deque, Callable
 
 import aiofiles
 import aiofiles.os
 import aiofiles.ospath
 import aiohttp
+import aiohttp.web
 from aiolimiter import AsyncLimiter
 
 from async_downloader.types import DownloadTaskInfo, DownloaderStatus
@@ -15,7 +17,6 @@ from async_downloader.types import DownloadTaskInfo, DownloaderStatus
 # todo:
 # 1. Add aiohttp_retry
 # 2. Add proxy support
-# 3. Add error statuses handler
 
 
 class ConcurrentDownloader:
@@ -50,6 +51,9 @@ class ConcurrentDownloader:
 
         async with aiohttp.ClientSession() as session:
             async with session.get(task.url) as response:
+                if response.status != HTTPStatus.OK:
+                    response.raise_for_status()
+
                 task._file_size_bytes = await self._get_filesize_from_response(response)
 
                 save_path = os.path.join(task.save_dir, task.filename)
