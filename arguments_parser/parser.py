@@ -30,9 +30,9 @@ purity_arg_name = "purity"
 category_arg_name = "category"
 sync_arg_name = "sync"
 downloads_path_arg_name = "downloads_path"
-verbose_arg_name = "verbose"
 workers_arg_name = "workers"
 api_key_arg_name = "api_key"
+
 
 required_group.add_argument(
     f"--{info_arg_name}",
@@ -42,6 +42,7 @@ required_group.add_argument(
     metavar="username",
     help=help_messages.HELP_MSG_INFO,
 )
+
 
 required_group.add_argument(
     f"--{collections_arg_name}",
@@ -53,6 +54,7 @@ required_group.add_argument(
     help=help_messages.HELP_MSG_COLLECTIONS,
 )
 
+
 required_group.add_argument(
     f"--{uploads_arg_name}",
     f"-{uploads_arg_name[0]}",
@@ -62,6 +64,7 @@ required_group.add_argument(
     help=help_messages.HELP_MSG_UPLOADS,
 )
 
+
 parser.add_argument(
     f"--{purity_arg_name}",
     type=str,
@@ -69,6 +72,7 @@ parser.add_argument(
     metavar="",
     help=help_messages.HELP_MSG_PURITY,
 )
+
 
 parser.add_argument(
     f"--{category_arg_name}",
@@ -78,12 +82,14 @@ parser.add_argument(
     help=help_messages.HELP_MSG_CATEGORY,
 )
 
+
 required_group.add_argument(
     f"--{sync_arg_name}",
     f"-{sync_arg_name[0]}",
     action="store_true",
     help=help_messages.HELP_MSG_SYNC,
 )
+
 
 parser.add_argument(
     f"--{downloads_path_arg_name}",
@@ -94,13 +100,6 @@ parser.add_argument(
     help=help_messages.HELP_MSG_DOWNLOADS_PATH,
 )
 
-parser.add_argument(
-    f"--{verbose_arg_name}",
-    "-v",
-    action="store_true",
-    default=DEFAULT_VERBOSE,
-    help=help_messages.HELP_MSG_VERBOSE,
-)
 
 parser.add_argument(
     f"--{workers_arg_name}",
@@ -119,6 +118,7 @@ parser.add_argument(
     metavar="your_key",
     help=help_messages.HELP_MSG_API_KEY,
 )
+
 
 args = vars(parser.parse_args())
 
@@ -190,14 +190,6 @@ def get_category_filter():
 
 def get_downloads_path():
     return args[downloads_path_arg_name]
-
-
-def get_logger_level():
-    verbose = args[verbose_arg_name]
-    if verbose:
-        return "INFO"
-    else:
-        return "WARNING"
 
 
 def get_workers_count():

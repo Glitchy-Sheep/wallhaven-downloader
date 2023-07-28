@@ -27,9 +27,6 @@ example:
 
 HELP_MSG_SYNC = """[IN DEVELOPING]\n\n"""
 
-HELP_MSG_VERBOSE = """Show extra info about downloading progress
-without this option you will only see overall progress\n\n"""
-
 HELP_MSG_THREADS = """Count of simultaneous downloads (default = 1)
 Beware too many downloads at a time, it can be less stable. (1-6 recommended)\n\n"""
 
