@@ -16,6 +16,8 @@ class DownloadTaskInfo:
     finish_callback: Optional[Callable] = None
     fail_callback: Optional[Callable] = None
 
+    headers: Optional[dict] = None
+
     _id: Optional[int] = None
     _file_size_bytes: int = None
 

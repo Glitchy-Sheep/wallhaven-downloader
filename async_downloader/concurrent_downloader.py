@@ -49,7 +49,7 @@ class ConcurrentDownloader:
         if self.requests_limiter is not None:
             await self.requests_limiter.acquire()
 
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(headers=task.headers) as session:
             async with session.get(task.url) as response:
                 if response.status != HTTPStatus.OK:
                     response.raise_for_status()
