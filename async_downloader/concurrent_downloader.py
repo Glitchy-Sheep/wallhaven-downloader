@@ -12,11 +12,12 @@ import aiohttp.web
 from aiolimiter import AsyncLimiter
 
 from async_downloader.types import DownloadTaskInfo, DownloaderStatus
+from async_downloader.utils import UserAgentRotator, ProxyConnectorRotator
 
 
 # todo:
+# 0. Add docstrings
 # 1. Add aiohttp_retry
-# 2. Add proxy support
 
 
 class ConcurrentDownloader:
@@ -25,18 +26,26 @@ class ConcurrentDownloader:
         max_concurrent_tasks: Optional[int] = 1,
         requests_limiter: Optional[AsyncLimiter] = None,
         start_task_id: Optional[int] = 1,
+        proxy_rotator: Optional[ProxyConnectorRotator] = None,
+        user_agent_rotator: Optional[UserAgentRotator] = None,
     ):
+        # Connection options
         self.requests_limiter: Optional[AsyncLimiter] = requests_limiter
+        self.proxy_rotator: Optional[ProxyConnectorRotator] = proxy_rotator
+        self.user_agent_rotator: Optional[UserAgentRotator] = user_agent_rotator
 
+        # Task management
         self._scheduled_tasks: Deque[DownloadTaskInfo] = deque()
         self._in_progress_tasks: Deque[DownloadTaskInfo] = deque()
         self._finished_tasks: Deque[DownloadTaskInfo] = deque()
         self._failed_tasks: Deque[DownloadTaskInfo] = deque()
 
-        self._max_concurrent_tasks = max_concurrent_tasks
-
+        # Futures management
         self._async_jobs: Deque[asyncio.Task] = deque()
-        self._start_task_id: int = start_task_id
+
+        # Downloader constants
+        self._START_TASK_ID: int = start_task_id
+        self._MAX_CONCURRENT_TASKS = max_concurrent_tasks
 
     @staticmethod
     async def _get_filesize_from_response(response: aiohttp.ClientResponse):
@@ -49,7 +58,17 @@ class ConcurrentDownloader:
         if self.requests_limiter is not None:
             await self.requests_limiter.acquire()
 
-        async with aiohttp.ClientSession(headers=task.headers) as session:
+        if self.proxy_rotator is not None:
+            connector = self.proxy_rotator.get_connector()
+        else:
+            connector = None
+
+        if self.user_agent_rotator is not None:
+            task.headers["User-Agent"] = self.user_agent_rotator.get_user_agent()
+
+        async with aiohttp.ClientSession(
+            headers=task.headers, connector=connector
+        ) as session:
             async with session.get(task.url) as response:
                 if response.status != HTTPStatus.OK:
                     response.raise_for_status()
@@ -110,12 +129,12 @@ class ConcurrentDownloader:
         await self._start_task_processing(job_task_id)
 
     async def _start_initial_tasks(self, start_id: int):
-        self._start_task_id = start_id
+        self._START_TASK_ID = start_id
 
-        tasks_to_perform = min(self._max_concurrent_tasks, len(self._scheduled_tasks))
+        tasks_to_perform = min(self._MAX_CONCURRENT_TASKS, len(self._scheduled_tasks))
 
         for task_id in range(
-            self._start_task_id, tasks_to_perform + self._start_task_id
+            self._START_TASK_ID, tasks_to_perform + self._START_TASK_ID
         ):
             await self._start_task_processing(task_id)
 

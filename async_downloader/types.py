@@ -31,6 +31,9 @@ class DownloadTaskInfo:
         if self.filename is None:
             self.filename = self.url.split("/")[-1]
 
+        if self.headers is None:
+            self.headers = {}
+
 
 @dataclass()
 class DownloaderStatus:
