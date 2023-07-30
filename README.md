@@ -1,6 +1,6 @@
 Wallhaven Downloader
 --
-Download all your favorite pictures effortlessly without any loss.
+Download all your favorite pictures from [wallhaven.cc](https://wallhaven.cc) effortlessly without any loss.
 
 ![](https://w.wallhaven.cc/full/eo/wallhaven-eom7ml.png)
 
